@@ -1,0 +1,29 @@
+# Node (Frontend)
+node_modules/
+.next/
+dist/
+
+# Python (Backend)
+venv/
+.venv/
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Supabase
+supabase/*
+
+# Environment variables
+.env
+.env*.local
+
+# Logs
+*.log
+
+# IDE & Editor files
+.vscode/
+.idea/
+IDE/.vscode/
