@@ -21,10 +21,32 @@ Set-Location "$ScriptPath\..\frontend"
 Write-Host "🔗 1. Vinculando proyecto con Vercel..." -ForegroundColor Cyan
 & vercel link --yes
 
-Write-Host "📝 2. Inyectando variables de entorno en producción..." -ForegroundColor Cyan
-try { "https://tu-proyecto.supabase.co" | & vercel env add NEXT_PUBLIC_SUPABASE_URL production } catch { $_.Exception.Message }
-try { "tu-anon-key" | & vercel env add NEXT_PUBLIC_SUPABASE_ANON_KEY production } catch { $_.Exception.Message }
-try { "https://tu-backend-fastapi.render.com" | & vercel env add FASTAPI_BASE_URL production } catch { $_.Exception.Message }
+Write-Host "📝 2. Cargando e inyectando variables de entorno desde .env.local..." -ForegroundColor Cyan
+
+$EnvFile = "$ScriptPath\..\frontend\.env.local"
+$SupabaseUrl = "https://tu-proyecto.supabase.co"
+$SupabaseKey = "tu-anon-key"
+$FastApiUrl = "https://tu-backend-fastapi.render.com"
+
+if (Test-Path $EnvFile) {
+    Write-Host "📖 Cargando variables de configuración desde $EnvFile..." -ForegroundColor Gray
+    Get-Content $EnvFile | Foreach-Object {
+        $line = $_.Trim()
+        if ($line -and -not $line.StartsWith("#") -and $line.Contains("=")) {
+            $index = $line.IndexOf("=")
+            $key = $line.Substring(0, $index).Trim()
+            $value = $line.Substring($index + 1).Trim().Trim('"').Trim("'")
+            
+            if ($key -eq "NEXT_PUBLIC_SUPABASE_URL") { $SupabaseUrl = $value }
+            if ($key -eq "NEXT_PUBLIC_SUPABASE_ANON_KEY") { $SupabaseKey = $value }
+            if ($key -eq "FASTAPI_BASE_URL") { $FastApiUrl = $value }
+        }
+    }
+}
+
+try { $SupabaseUrl | & vercel env add NEXT_PUBLIC_SUPABASE_URL production } catch { $_.Exception.Message }
+try { $SupabaseKey | & vercel env add NEXT_PUBLIC_SUPABASE_ANON_KEY production } catch { $_.Exception.Message }
+try { $FastApiUrl | & vercel env add FASTAPI_BASE_URL production } catch { $_.Exception.Message }
 
 Write-Host "🏗️ 3. Construyendo y desplegando bundle en producción..." -ForegroundColor Cyan
 # Desplegar en modo producción y extraer la URL final

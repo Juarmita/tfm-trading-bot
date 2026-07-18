@@ -23,11 +23,30 @@ echo "🔗 1. Vinculando proyecto con Vercel..."
 # Vincula de forma no interactiva utilizando valores por defecto
 vercel link --yes
 
-echo "📝 2. Inyectando variables de entorno en producción..."
-# Agregar variables de entorno (ignora errores si ya existen)
-echo "https://tu-proyecto.supabase.co" | vercel env add NEXT_PUBLIC_SUPABASE_URL production || true
-echo "tu-anon-key" | vercel env add NEXT_PUBLIC_SUPABASE_ANON_KEY production || true
-echo "https://tu-backend-fastapi.render.com" | vercel env add FASTAPI_BASE_URL production || true
+echo "📝 2. Cargando e inyectando variables de entorno desde .env.local..."
+
+ENV_FILE="../frontend/.env.local"
+SUPABASE_URL="https://tu-proyecto.supabase.co"
+SUPABASE_KEY="tu-anon-key"
+FASTAPI_URL="https://tu-backend-fastapi.render.com"
+
+if [ -f "$ENV_FILE" ]; then
+    echo "📖 Cargando variables de configuración desde $ENV_FILE..."
+    while IFS= read -r line || [ -n "$line" ]; do
+        # Omitir comentarios y líneas vacías
+        if [[ ! "$line" =~ ^# ]] && [[ "$line" == *"="* ]]; then
+            key=$(echo "$line" | cut -d'=' -f1 | tr -d '[:space:]')
+            value=$(echo "$line" | cut -d'=' -f2- | tr -d '[:space:]' | tr -d '"' | tr -d "'")
+            if [ "$key" = "NEXT_PUBLIC_SUPABASE_URL" ]; then SUPABASE_URL="$value"; fi
+            if [ "$key" = "NEXT_PUBLIC_SUPABASE_ANON_KEY" ]; then SUPABASE_KEY="$value"; fi
+            if [ "$key" = "FASTAPI_BASE_URL" ]; then FASTAPI_URL="$value"; fi
+        fi
+    done < "$ENV_FILE"
+fi
+
+echo "$SUPABASE_URL" | vercel env add NEXT_PUBLIC_SUPABASE_URL production || true
+echo "$SUPABASE_KEY" | vercel env add NEXT_PUBLIC_SUPABASE_ANON_KEY production || true
+echo "$FASTAPI_URL" | vercel env add FASTAPI_BASE_URL production || true
 
 echo "🏗️ 3. Construyendo y desplegando bundle en producción..."
 # Desplegar en modo producción y extraer la URL final arrojada
