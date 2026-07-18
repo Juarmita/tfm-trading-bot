@@ -25,9 +25,9 @@ vercel link --yes
 
 echo "📝 2. Inyectando variables de entorno en producción..."
 # Agregar variables de entorno (ignora errores si ya existen)
-vercel env add NEXT_PUBLIC_SUPABASE_URL production "https://tu-proyecto.supabase.co" --yes || true
-vercel env add NEXT_PUBLIC_SUPABASE_ANON_KEY production "tu-anon-key" --yes || true
-vercel env add FASTAPI_BASE_URL production "https://tu-backend-fastapi.render.com" --yes || true
+echo "https://tu-proyecto.supabase.co" | vercel env add NEXT_PUBLIC_SUPABASE_URL production || true
+echo "tu-anon-key" | vercel env add NEXT_PUBLIC_SUPABASE_ANON_KEY production || true
+echo "https://tu-backend-fastapi.render.com" | vercel env add FASTAPI_BASE_URL production || true
 
 echo "🏗️ 3. Construyendo y desplegando bundle en producción..."
 # Desplegar en modo producción y extraer la URL final arrojada

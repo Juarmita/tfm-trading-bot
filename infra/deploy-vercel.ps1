@@ -22,10 +22,9 @@ Write-Host "🔗 1. Vinculando proyecto con Vercel..." -ForegroundColor Cyan
 & vercel link --yes
 
 Write-Host "📝 2. Inyectando variables de entorno en producción..." -ForegroundColor Cyan
-# Agregar variables de entorno (ignora errores si ya existen)
-try { & vercel env add NEXT_PUBLIC_SUPABASE_URL production "https://tu-proyecto.supabase.co" --yes } catch { $_.Exception.Message }
-try { & vercel env add NEXT_PUBLIC_SUPABASE_ANON_KEY production "tu-anon-key" --yes } catch { $_.Exception.Message }
-try { & vercel env add FASTAPI_BASE_URL production "https://tu-backend-fastapi.render.com" --yes } catch { $_.Exception.Message }
+try { "https://tu-proyecto.supabase.co" | & vercel env add NEXT_PUBLIC_SUPABASE_URL production } catch { $_.Exception.Message }
+try { "tu-anon-key" | & vercel env add NEXT_PUBLIC_SUPABASE_ANON_KEY production } catch { $_.Exception.Message }
+try { "https://tu-backend-fastapi.render.com" | & vercel env add FASTAPI_BASE_URL production } catch { $_.Exception.Message }
 
 Write-Host "🏗️ 3. Construyendo y desplegando bundle en producción..." -ForegroundColor Cyan
 # Desplegar en modo producción y extraer la URL final
