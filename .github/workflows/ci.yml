@@ -1,66 +1,85 @@
-name: CI Pipeline
+name: TFM Trading Bot CI
 
 on:
   push:
     branches:
-      - 'dev/tfm-v1'
+      - main
+      - dev/tfm-v1
   pull_request:
     branches:
-      - 'main'
+      - main
+      - dev/tfm-v1
 
 jobs:
-  frontend-ci:
-    name: Frontend Lint & Typecheck
+  backend-lint-and-test:
+    name: Backend Lint & Pytest
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./frontend
     steps:
-      - name: Checkout Repository
+      - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 18
-
-      - name: Install Dependencies
-        run: npm install
-
-      - name: TypeScript Compile Check
-        run: npm run typecheck
-
-      - name: Run Linter
-        run: npm run lint
-
-  backend-ci:
-    name: Backend Lint & Test
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: ./backend
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-
-      - name: Setup Python
+      - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: "3.11"
 
-      - name: Install Poetry
-        run: |
-          curl -sSL https://install.python-poetry.org | python3 -
-          echo "$HOME/.local/bin" >> $GITHUB_PATH
+      - name: Install Astral UV
+        run: curl -LsSf https://astral.sh/uv/install.sh | sh
 
       - name: Install Dependencies
-        run: poetry install
+        run: |
+          cd backend
+          uv sync
 
-      - name: Run Linter (Ruff)
-        run: poetry run ruff check .
+      - name: Lint with Ruff
+        run: |
+          cd backend
+          uv run ruff check app tests
 
-      - name: Run Typechecker (Mypy)
-        run: poetry run mypy .
+      - name: Check Formatting with Ruff Format
+        run: |
+          cd backend
+          uv run ruff format --check app tests
 
-      - name: Run Tests
-        run: poetry run pytest
+      - name: Run Pytest Suite with Coverage
+        run: |
+          cd backend
+          uv run pytest --cov=app --cov-report=term-missing tests/
+
+  frontend-lint-and-build:
+    name: Frontend Lint & Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install NodeJS Dependencies
+        run: |
+          cd frontend
+          npm ci --legacy-peer-deps
+
+      - name: Run ESLint
+        run: |
+          cd frontend
+          npm run lint
+
+      - name: Verify TypeScript compilation
+        run: |
+          cd frontend
+          npm run typecheck
+
+      - name: Execute Next.js Production Build
+        run: |
+          cd frontend
+          npm run build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: "https://tu-proyecto-ref.supabase.co"
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: "mock-anon-key"
+          FASTAPI_BASE_URL: "http://localhost:8000"
