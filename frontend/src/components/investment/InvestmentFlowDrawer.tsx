@@ -109,6 +109,13 @@ export default function InvestmentFlowDrawer({ isOpen, onClose }: InvestmentFlow
 
         {/* Contenido Central */}
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
+          {error && (
+            <div className="flex items-center gap-3 p-4 bg-red-500/10 border border-red-500/20 text-red-400 text-sm rounded-xl">
+              <ShieldAlert size={18} className="shrink-0" />
+              <span>{error}</span>
+            </div>
+          )}
+
           {state === "idle" && (
             <form onSubmit={handleRunAnalysis} className="space-y-6">
               {/* Activo Bursátil */}

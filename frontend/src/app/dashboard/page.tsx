@@ -18,6 +18,7 @@ import {
   RefreshCw,
   LogOut,
   Wallet,
+  Briefcase,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -53,55 +54,57 @@ export default function DashboardPage() {
   }, []);
 
   // 2. Verificar estado de conexión con FastAPI
-  useEffect(() => {
-    const checkConnection = async () => {
-      try {
-        const res = await fetch("/api/market/quotes/AAPL");
-        setIsBackendConnected(res.ok);
-      } catch (err) {
-        setIsBackendConnected(false);
+  const checkConnection = async () => {
+    try {
+      const res = await fetch("/api/market/quotes/AAPL");
+      setIsBackendConnected(res.ok);
+    } catch (err) {
+      setIsBackendConnected(false);
+    }
+  };
+
+  // 3. Cargar historial de operaciones del usuario
+  const fetchTrades = async () => {
+    if (!user) return;
+    try {
+      const { data, error } = await supabase
+        .from("trades")
+        .select(`
+          id,
+          symbol,
+          action,
+          quantity,
+          price_executed,
+          amount_usd,
+          created_at,
+          ai_trading_sessions!inner(user_id)
+        `)
+        .eq("ai_trading_sessions.user_id", user.id)
+        .order("created_at", { ascending: false });
+
+      if (!error && data) {
+        const formattedTrades: DatabaseTrade[] = data.map((t: any) => ({
+          id: t.id,
+          symbol: t.symbol,
+          action: t.action,
+          quantity: Number(t.quantity),
+          price_executed: Number(t.price_executed),
+          amount_usd: Number(t.amount_usd),
+          created_at: t.created_at,
+        }));
+        setTrades(formattedTrades);
       }
-    };
+    } catch (err) {
+      console.error("Error al cargar trades de Supabase:", err);
+    }
+  };
+
+  useEffect(() => {
     checkConnection();
   }, []);
 
-  // 3. Cargar historial de operaciones del usuario
   useEffect(() => {
     if (!user) return;
-
-    const fetchTrades = async () => {
-      try {
-        const { data, error } = await supabase
-          .from("trades")
-          .select(`
-            id,
-            symbol,
-            action,
-            quantity,
-            price_executed,
-            amount_usd,
-            created_at,
-            ai_trading_sessions!inner(user_id)
-          `)
-          .eq("ai_trading_sessions.user_id", user.id)
-          .order("created_at", { ascending: false });
-
-        if (!error && data) {
-          const formattedTrades: DatabaseTrade[] = data.map((t: any) => ({
-            id: t.id,
-            symbol: t.symbol,
-            action: t.action,
-            quantity: Number(t.quantity),
-            price_executed: Number(t.price_executed),
-            amount_usd: Number(t.amount_usd),
-            created_at: t.created_at,
-          }));
-          setTrades(formattedTrades);
-        }
-      } catch (err) {
-        console.error("Error al cargar trades de Supabase:", err);
-      }
-    };
 
     fetchTrades();
 
@@ -126,6 +129,13 @@ export default function DashboardPage() {
       supabase.removeChannel(tradesChannel);
     };
   }, [user]);
+
+  // 3b. Sincronizar todos los datos manualmente
+  const handleSync = async () => {
+    await refreshSession();
+    await checkConnection();
+    await fetchTrades();
+  };
 
   // 4. Salir de la sesión (Cerrar sesión)
   const handleLogout = async () => {
@@ -248,6 +258,13 @@ export default function DashboardPage() {
               <Coins size={18} />
               <span>Módulo de Inversión</span>
             </Link>
+            <Link
+              href="/portfolio"
+              className="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-900/50 transition font-medium"
+            >
+              <Briefcase size={18} />
+              <span>Mi Portafolio</span>
+            </Link>
           </nav>
         </div>
 
@@ -288,7 +305,7 @@ export default function DashboardPage() {
               <span>Nueva Inversión</span>
             </Link>
             <button
-              onClick={refreshSession}
+              onClick={handleSync}
               className="flex items-center gap-2 bg-slate-900 hover:bg-slate-800 text-slate-300 font-bold px-4 py-2 rounded-lg border border-slate-800 transition active:scale-95 text-sm"
             >
               <RefreshCw size={15} />

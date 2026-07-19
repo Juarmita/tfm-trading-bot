@@ -39,7 +39,7 @@ if (Test-Path $EnvFile) {
             
             if ($key -eq "NEXT_PUBLIC_SUPABASE_URL") { $SupabaseUrl = $value }
             if ($key -eq "NEXT_PUBLIC_SUPABASE_ANON_KEY") { $SupabaseKey = $value }
-            if ($key -eq "FASTAPI_BASE_URL") { $FastApiUrl = $value }
+            if ($key -eq "FASTAPI_BASE_URL" -and -not $value.Contains("localhost") -and -not $value.Contains("127.0.0.1")) { $FastApiUrl = $value }
         }
     }
 }

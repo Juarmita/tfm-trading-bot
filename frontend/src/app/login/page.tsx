@@ -8,7 +8,7 @@ import { TrendingUp, Mail, Lock, ShieldAlert, Github, Loader2 } from "lucide-rea
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectedFrom = searchParams.get("redirectedFrom") || "/invest";
+  const redirectedFrom = searchParams.get("redirectedFrom") || "/dashboard";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

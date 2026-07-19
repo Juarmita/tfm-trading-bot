@@ -39,7 +39,7 @@ if [ -f "$ENV_FILE" ]; then
             value=$(echo "$line" | cut -d'=' -f2- | tr -d '[:space:]' | tr -d '"' | tr -d "'")
             if [ "$key" = "NEXT_PUBLIC_SUPABASE_URL" ]; then SUPABASE_URL="$value"; fi
             if [ "$key" = "NEXT_PUBLIC_SUPABASE_ANON_KEY" ]; then SUPABASE_KEY="$value"; fi
-            if [ "$key" = "FASTAPI_BASE_URL" ]; then FASTAPI_URL="$value"; fi
+            if [ "$key" = "FASTAPI_BASE_URL" ] && [[ ! "$value" == *"localhost"* ]] && [[ ! "$value" == *"127.0.0.1"* ]]; then FASTAPI_URL="$value"; fi
         fi
     done < "$ENV_FILE"
 fi

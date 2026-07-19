@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { Toaster } from "sonner";
 
 export const metadata: Metadata = {
   title: "TFM Trading Bot Dashboard",
@@ -15,6 +16,7 @@ export default function RootLayout({
     <html lang="es" suppressHydrationWarning>
       <body className="min-h-screen antialiased bg-background text-foreground">
         {children}
+        <Toaster richColors closeButton position="top-right" />
       </body>
     </html>
   );
