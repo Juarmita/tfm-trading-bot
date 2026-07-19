@@ -3,480 +3,160 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useSession } from "@/hooks/useSession";
-import { supabase } from "@/lib/supabase/client";
 import {
   TrendingUp,
-  Play,
-  Square,
-  Settings,
-  Activity,
-  Wallet,
-  ArrowUpRight,
-  RefreshCw,
-  Coins,
-  History,
-  TrendingDown,
-  Trash2,
+  ArrowRight,
+  ShieldCheck,
+  Cpu,
+  Layers,
+  CheckCircle,
+  Github,
 } from "lucide-react";
-import {
-  ResponsiveContainer,
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  Tooltip,
-} from "recharts";
 
-type DatabaseTrade = {
-  id: string;
-  symbol: string;
-  action: "BUY" | "SELL";
-  quantity: number;
-  price_executed: number;
-  amount_usd: number;
-  created_at: string;
-};
-
-export default function Home() {
-  const { user, wallet, refreshSession } = useSession();
+export default function LandingPage() {
+  const { user } = useSession();
   const [mounted, setMounted] = useState(false);
-  const [trades, setTrades] = useState<DatabaseTrade[]>([]);
-  const [isBackendConnected, setIsBackendConnected] = useState(false);
-  const [isResetting, setIsResetting] = useState(false);
 
-  // 1. Evitar Hydration Mismatches en Next.js
   useEffect(() => {
     setMounted(true);
   }, []);
 
-  // 2. Verificar estado de conexión con FastAPI
-  useEffect(() => {
-    const checkConnection = async () => {
-      try {
-        const res = await fetch("/api/market/quotes/AAPL");
-        setIsBackendConnected(res.ok);
-      } catch (err) {
-        setIsBackendConnected(false);
-      }
-    };
-    checkConnection();
-  }, []);
-
-  // 3. Cargar historial de operaciones del usuario
-  useEffect(() => {
-    if (!user) return;
-
-    const fetchTrades = async () => {
-      try {
-        // Consultar sesiones y hacer inner join con trades
-        const { data, error } = await supabase
-          .from("trades")
-          .select(`
-            id,
-            symbol,
-            action,
-            quantity,
-            price_executed,
-            amount_usd,
-            created_at,
-            ai_trading_sessions!inner(user_id)
-          `)
-          .eq("ai_trading_sessions.user_id", user.id)
-          .order("created_at", { ascending: false });
-
-        if (!error && data) {
-          const formattedTrades: DatabaseTrade[] = data.map((t: any) => ({
-            id: t.id,
-            symbol: t.symbol,
-            action: t.action,
-            quantity: Number(t.quantity),
-            price_executed: Number(t.price_executed),
-            amount_usd: Number(t.amount_usd),
-            created_at: t.created_at,
-          }));
-          setTrades(formattedTrades);
-        }
-      } catch (err) {
-        console.error("Error al cargar trades de Supabase:", err);
-      }
-    };
-
-    fetchTrades();
-
-    // Escuchar inserciones en la tabla trades en tiempo real
-    const tradesChannel = supabase
-      .channel(`trades-db-updates-${user.id}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "trades",
-        },
-        () => {
-          fetchTrades();
-          refreshSession();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(tradesChannel);
-    };
-  }, [user]);
-
-  // 4. Reiniciar portafolio (para pruebas del Tribunal)
-  const handleResetPortfolio = async () => {
-    if (!user || isResetting) return;
-    if (!window.confirm("¿Seguro que deseas reiniciar el saldo de tu billetera a $10,000.00 USD y vaciar el historial de trades?")) return;
-
-    setIsResetting(true);
-    try {
-      // A. Eliminar trades asociados a las sesiones del usuario
-      const { data: userSessions } = await (supabase
-        .from("ai_trading_sessions") as any)
-        .select("id")
-        .eq("user_id", user.id);
-
-      if (userSessions && userSessions.length > 0) {
-        const sessionIds = (userSessions as any[]).map((s) => s.id);
-        
-        // Borrar trades
-        await (supabase
-          .from("trades") as any)
-          .delete()
-          .in("session_id", sessionIds);
-
-        // Borrar sesiones
-        await (supabase
-          .from("ai_trading_sessions") as any)
-          .delete()
-          .in("id", sessionIds);
-      }
-
-      // B. Reiniciar balance a $10,000.00 USD en Supabase
-      await (supabase
-        .from("wallets") as any)
-        .update({ balance: 10000.00 })
-        .eq("user_id", user.id);
-
-      setTrades([]);
-      refreshSession();
-      alert("¡Portafolio e historial restablecidos con éxito!");
-    } catch (err) {
-      console.error("Error al resetear portafolio:", err);
-      alert("Error al restablecer los datos del portafolio.");
-    } finally {
-      setIsResetting(false);
-    }
-  };
-
   if (!mounted) {
     return (
-      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-slate-400 gap-3">
-        <RefreshCw className="animate-spin text-emerald-500" size={32} />
-        <span>Cargando cuadro de mando...</span>
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center text-slate-400">
+        <span>Cargando portal...</span>
       </div>
     );
   }
 
-  // 5. Cálculos dinámicos de métricas
-  const currentBalance = wallet ? wallet.balance : 10000.00;
-  const initialBalance = 10000.00;
-  const profitLossAmount = currentBalance - initialBalance;
-  const profitLossPercent = (profitLossAmount / initialBalance) * 100;
-  const totalOperationsCount = trades.length;
-
-  // Tasa de éxito realista: Si hay operaciones, ganamos en base al rendimiento positivo, de lo contrario usamos mock histórico
-  const isWinningPortfolio = profitLossAmount >= 0;
-  const winRate = totalOperationsCount > 0 
-    ? (isWinningPortfolio ? 70.2 : 45.5) 
-    : 68.4;
-  const winningTradesCount = Math.round(totalOperationsCount * (winRate / 100));
-  const losingTradesCount = totalOperationsCount - winningTradesCount;
-
-  // Lista final de operaciones (semilla demo si está vacío)
-  const defaultTrades: DatabaseTrade[] = [
-    { id: "seed-1", symbol: "AAPL", action: "BUY", quantity: 12.5, price_executed: 180.00, amount_usd: 2250.00, created_at: new Date(Date.now() - 3600000 * 24).toISOString() },
-    { id: "seed-2", symbol: "MSFT", action: "BUY", quantity: 5.4, price_executed: 370.50, amount_usd: 2000.70, created_at: new Date(Date.now() - 3600000 * 12).toISOString() },
-    { id: "seed-3", symbol: "TSLA", action: "BUY", quantity: 15.0, price_executed: 210.20, amount_usd: 3153.00, created_at: new Date(Date.now() - 3600000 * 2).toISOString() }
-  ];
-  const displayedTrades = totalOperationsCount > 0 ? trades : defaultTrades;
-
-  // Historial de rendimiento para gráfico dinámico
-  const chartData = [
-    { name: "Inicio", rendimiento: 0 },
-    { name: "Semana 1", rendimiento: isWinningPortfolio ? 1.80 : -0.50 },
-    { name: "Semana 2", rendimiento: isWinningPortfolio ? 3.42 : -1.80 },
-    { name: "Semana 3", rendimiento: isWinningPortfolio ? 2.10 : -2.30 },
-    { name: "Semana 4", rendimiento: isWinningPortfolio ? 4.65 : -3.50 },
-    { name: "Actual", rendimiento: Number(profitLossPercent.toFixed(2)) },
-  ];
-
   return (
-    <div className="flex h-screen bg-slate-950 text-slate-100 overflow-hidden relative">
-      {/* Background Gradients */}
-      <div className="absolute top-0 left-0 w-[500px] h-[500px] bg-emerald-500/5 rounded-full filter blur-[120px] pointer-events-none" />
-      <div className="absolute bottom-0 right-0 w-[500px] h-[500px] bg-blue-500/5 rounded-full filter blur-[120px] pointer-events-none" />
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col relative overflow-hidden font-sans">
+      {/* Background Radial Gradients */}
+      <div className="absolute top-0 left-1/4 w-[600px] h-[600px] bg-emerald-500/5 rounded-full filter blur-[150px] pointer-events-none" />
+      <div className="absolute bottom-0 right-1/4 w-[600px] h-[600px] bg-blue-500/5 rounded-full filter blur-[150px] pointer-events-none" />
 
-      {/* Sidebar */}
-      <aside className="w-64 border-r border-slate-900 bg-slate-950 flex flex-col justify-between p-4 relative z-10">
-        <div>
-          <div className="flex items-center gap-3 px-2 py-3 mb-6">
-            <div className="bg-emerald-500 text-slate-950 p-2 rounded-lg font-bold flex items-center justify-center shadow-lg shadow-emerald-500/25">
-              <TrendingUp size={20} />
-            </div>
-            <div>
-              <h1 className="font-bold text-lg tracking-wider text-white">TFM BOT</h1>
-              <p className="text-xs text-slate-400">Trading Algorítmico</p>
-            </div>
+      {/* Header / Navbar */}
+      <header className="w-full max-w-6xl mx-auto px-6 py-6 flex items-center justify-between border-b border-slate-900 relative z-10">
+        <div className="flex items-center gap-3">
+          <div className="bg-emerald-500 text-slate-950 p-2 rounded-lg font-bold flex items-center justify-center shadow-lg shadow-emerald-500/20">
+            <TrendingUp size={20} />
           </div>
-
-          <nav className="space-y-1">
-            <Link
-              href="/"
-              className="flex items-center gap-3 px-3 py-2 rounded-lg bg-emerald-500/10 text-emerald-400 font-medium"
-            >
-              <Activity size={18} />
-              <span>Panel de Control</span>
-            </Link>
-            <Link
-              href="/invest"
-              className="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-900/50 transition font-medium"
-            >
-              <Coins size={18} />
-              <span>Módulo de Inversión</span>
-            </Link>
-            <Link
-              href="/login"
-              className="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-900/50 transition font-medium"
-            >
-              <Settings size={18} />
-              <span>Configuración</span>
-            </Link>
-          </nav>
-        </div>
-
-        <div className="border-t border-slate-900 pt-4 px-2">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center font-bold text-sm text-emerald-400">
-                JM
-              </div>
-              <div>
-                <p className="text-xs font-semibold text-slate-200">Juan M. Garcia</p>
-                <p className="text-[10px] text-slate-500">Evaluador Semilla</p>
-              </div>
-            </div>
-          </div>
-          <button
-            onClick={handleResetPortfolio}
-            disabled={isResetting}
-            className="w-full flex items-center justify-center gap-2 bg-red-950/20 hover:bg-red-950/40 text-red-400 border border-red-900/40 py-2 rounded-lg text-xs font-medium transition active:scale-95 disabled:opacity-50"
-          >
-            <Trash2 size={14} />
-            <span>Restablecer Datos</span>
-          </button>
-        </div>
-      </aside>
-
-      {/* Main Content Area */}
-      <main className="flex-1 overflow-y-auto flex flex-col relative z-10">
-        {/* Header */}
-        <header className="border-b border-slate-900 px-8 py-5 bg-slate-950/60 backdrop-blur-md flex items-center justify-between">
           <div>
-            <h2 className="text-xl font-bold text-white">Estado del Bot</h2>
-            <p className="text-xs text-slate-400">Simulación ACID y Ejecución en Supabase</p>
+            <h1 className="font-extrabold text-lg tracking-wide text-white">TFM BOT</h1>
+            <p className="text-[10px] text-slate-500 uppercase tracking-widest">Defensa Académica</p>
           </div>
-          <div className="flex items-center gap-3">
-            <Link
-              href="/invest"
-              className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold px-4 py-2 rounded-lg shadow-lg shadow-emerald-500/10 hover:shadow-emerald-400/20 transition active:scale-95 text-sm"
-            >
-              <Play size={15} fill="currentColor" />
-              <span>Nueva Inversión</span>
-            </Link>
-            <button
-              onClick={refreshSession}
-              className="flex items-center gap-2 bg-slate-900 hover:bg-slate-800 text-slate-300 font-bold px-4 py-2 rounded-lg border border-slate-800 transition active:scale-95 text-sm"
-            >
-              <RefreshCw size={15} />
-              <span>Sincronizar</span>
-            </button>
-          </div>
-        </header>
+        </div>
 
-        {/* Content Body */}
-        <div className="p-8 space-y-8 flex-1">
-          {/* Stats Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            {/* Rendimiento */}
-            <div className="bg-slate-900/20 border border-slate-900 rounded-xl p-5 backdrop-blur-sm relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-full filter blur-xl"></div>
-              <p className="text-xs text-slate-400 font-semibold tracking-wide uppercase">Rentabilidad Total</p>
-              <h3 className={`text-2xl font-bold mt-2 flex items-center gap-1 ${profitLossAmount >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-                {profitLossAmount >= 0 ? "+" : ""}{profitLossPercent.toFixed(2)}%
-              </h3>
-              <div className="flex items-center gap-1 text-[10px] mt-2">
-                {profitLossAmount >= 0 ? (
-                  <span className="text-emerald-500 flex items-center gap-0.5">
-                    <ArrowUpRight size={12} />
-                    +${profitLossAmount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD
-                  </span>
-                ) : (
-                  <span className="text-red-500 flex items-center gap-0.5">
-                    <TrendingDown size={12} />
-                    -${Math.abs(profitLossAmount).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD
-                  </span>
-                )}
-              </div>
-            </div>
+        <div className="flex items-center gap-4">
+          <Link
+            href="https://github.com/Juarmita/tfm-trading-bot.git"
+            target="_blank"
+            className="text-slate-400 hover:text-white transition p-2 hover:bg-slate-900 rounded-lg"
+          >
+            <Github size={20} />
+          </Link>
+          <Link
+            href={user ? "/dashboard" : "/login"}
+            className="bg-slate-900 border border-slate-800 hover:bg-slate-800 text-slate-200 font-semibold px-4 py-2 rounded-lg text-sm transition active:scale-95"
+          >
+            {user ? "Ir al Panel" : "Iniciar Sesión"}
+          </Link>
+        </div>
+      </header>
 
-            {/* Billetera balance */}
-            <div className="bg-slate-900/20 border border-slate-900 rounded-xl p-5 backdrop-blur-sm relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/5 rounded-full filter blur-xl"></div>
-              <p className="text-xs text-slate-400 font-semibold tracking-wide uppercase">Balance de Cuenta</p>
-              <h3 className="text-2xl font-bold mt-2 text-white">
-                ${currentBalance.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </h3>
-              <div className="flex items-center gap-1 text-[10px] text-slate-500 mt-2">
-                <Wallet size={12} />
-                <span>Supabase Live Wallet (USD)</span>
-              </div>
-            </div>
+      {/* Hero Section */}
+      <main className="flex-1 flex flex-col justify-center items-center text-center px-6 py-12 relative z-10 max-w-4xl mx-auto space-y-8">
+        <div className="space-y-4">
+          <span className="text-xs font-bold text-emerald-400 uppercase tracking-widest bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/15">
+            Trabajo de Fin de Máster 2026
+          </span>
+          <h2 className="text-4xl md:text-6xl font-extrabold tracking-tight text-white leading-tight">
+            Sistema de Inversión <br />
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-blue-500">
+              Automatizada Cuantitativa
+            </span>
+          </h2>
+          <p className="text-sm md:text-base text-slate-400 max-w-2xl mx-auto leading-relaxed">
+            Plataforma algorítmica premium estructurada en base a un motor cuantitativo en Python
+            (FastAPI) conectado a un cliente web reactivo de alto rendimiento (Next.js). Diseñada con 
+            explicabilidad de IA y total desacoplamiento transaccional.
+          </p>
+        </div>
 
-            {/* Operaciones ganadoras */}
-            <div className="bg-slate-900/20 border border-slate-900 rounded-xl p-5 backdrop-blur-sm relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-24 h-24 bg-red-500/5 rounded-full filter blur-xl"></div>
-              <p className="text-xs text-slate-400 font-semibold tracking-wide uppercase">Operaciones Ganadoras</p>
-              <h3 className="text-2xl font-bold mt-2 text-slate-200">{winRate}%</h3>
-              <div className="flex items-center gap-1 text-[10px] text-slate-500 mt-2">
-                <span>{winningTradesCount} ganadas / {losingTradesCount} perdidas</span>
-              </div>
-            </div>
+        {/* CTA Buttons */}
+        <div className="flex flex-col sm:flex-row gap-4 pt-2">
+          <Link
+            href={user ? "/dashboard" : "/login"}
+            className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold px-8 py-4 rounded-xl shadow-lg shadow-emerald-500/10 hover:shadow-emerald-400/20 active:scale-[0.98] transition flex items-center justify-center gap-2 group text-base"
+          >
+            <span>Acceder al Panel de Control</span>
+            <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
+          </Link>
+        </div>
 
-            {/* Estado API */}
-            <div className="bg-slate-900/20 border border-slate-900 rounded-xl p-5 backdrop-blur-sm relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/5 rounded-full filter blur-xl"></div>
-              <p className="text-xs text-slate-400 font-semibold tracking-wide uppercase">Conexión con FastAPI</p>
-              <h3 className={`text-2xl font-bold mt-2 flex items-center gap-1.5 ${isBackendConnected ? "text-emerald-400" : "text-amber-400"}`}>
-                {isBackendConnected ? "CONECTADO" : "MOCK DEMO"}
-              </h3>
-              <div className="flex items-center gap-1 text-[10px] mt-2">
-                {isBackendConnected ? (
-                  <span className="text-emerald-500 flex items-center gap-1">
-                    <RefreshCw size={10} className="animate-spin" />
-                    Ejecución activa en Render.com
-                  </span>
-                ) : (
-                  <span className="text-amber-500">
-                    Bypass activo (Simulación de Inferencia local)
-                  </span>
-                )}
-              </div>
+        {/* Pillars / Key Features */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full pt-12">
+          {/* Feature 1 */}
+          <div className="bg-slate-900/30 border border-slate-900 rounded-2xl p-6 text-left backdrop-blur-sm relative hover:border-slate-800 transition">
+            <div className="text-emerald-400 mb-4 bg-emerald-500/5 w-10 h-10 rounded-lg flex items-center justify-center border border-emerald-500/10">
+              <Cpu size={20} />
             </div>
+            <h3 className="font-bold text-base text-slate-100">Explicabilidad IA</h3>
+            <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+              Inferencia algorítmica estructurada en Markdown detallando factores técnicos (SMA, RSI, MACD), 
+              ponderaciones e indicadores fundamentales del emisor antes de ordenar cualquier transacción.
+            </p>
           </div>
 
-          {/* Charts and Details Section */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            {/* Chart Area */}
-            <div className="lg:col-span-2 bg-slate-900/20 border border-slate-900 rounded-xl p-6 backdrop-blur-sm flex flex-col justify-between h-[380px]">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <h4 className="font-bold text-lg text-white">Historial de Rendimiento</h4>
-                  <p className="text-xs text-slate-400">Rentabilidad acumulada del bot (%)</p>
-                </div>
-                <div className="flex gap-2">
-                  <span className="px-2.5 py-1 rounded bg-emerald-500/10 text-emerald-400 text-[10px] font-bold uppercase tracking-wider">
-                    Tiempo Real
-                  </span>
-                </div>
-              </div>
-
-              {/* Responsive Chart */}
-              <div className="flex-1 w-full bg-slate-950/40 rounded-lg border border-slate-900/80 p-2 relative">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                    <defs>
-                      <linearGradient id="colorRendimiento" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#10b981" stopOpacity={0.2} />
-                        <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <XAxis
-                      dataKey="name"
-                      stroke="#475569"
-                      fontSize={11}
-                      tickLine={false}
-                      axisLine={false}
-                    />
-                    <YAxis
-                      stroke="#475569"
-                      fontSize={11}
-                      tickLine={false}
-                      axisLine={false}
-                      tickFormatter={(val) => `${val}%`}
-                    />
-                    <Tooltip
-                      contentStyle={{
-                        backgroundColor: "#0b132b",
-                        borderColor: "#1e293b",
-                        borderRadius: "8px",
-                        fontSize: "12px",
-                        color: "#f4f5f6",
-                      }}
-                      formatter={(value: any) => [`${value}%`, "Rendimiento"]}
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey="rendimiento"
-                      stroke="#10b981"
-                      strokeWidth={2}
-                      fillOpacity={1}
-                      fill="url(#colorRendimiento)"
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
+          {/* Feature 2 */}
+          <div className="bg-slate-900/30 border border-slate-900 rounded-2xl p-6 text-left backdrop-blur-sm relative hover:border-slate-800 transition">
+            <div className="text-emerald-400 mb-4 bg-emerald-500/5 w-10 h-10 rounded-lg flex items-center justify-center border border-emerald-500/10">
+              <ShieldCheck size={20} />
             </div>
+            <h3 className="font-bold text-base text-slate-100">Gestión de Riesgo Activa</h3>
+            <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+              Reglas matemáticas preventivas en tiempo de ejecución: penalización inmediata por volatilidad extrema 
+              (drawdowns) y límites de sobreconcentración por activo de hasta el 30% del capital de la cartera.
+            </p>
+          </div>
 
-            {/* Live Activities / Orders */}
-            <div className="bg-slate-900/20 border border-slate-900 rounded-xl p-6 backdrop-blur-sm flex flex-col h-[380px]">
-              <div className="flex items-center justify-between mb-4">
-                <h4 className="font-bold text-lg text-white">Últimas Operaciones</h4>
-                <History size={16} className="text-slate-400" />
-              </div>
-              
-              <div className="space-y-3 overflow-y-auto flex-1 pr-1 custom-scrollbar">
-                {displayedTrades.map((trade) => (
-                  <div
-                    key={trade.id}
-                    className="flex items-center justify-between p-3 rounded-lg bg-slate-950/40 border border-slate-900/60 hover:border-slate-800 transition"
-                  >
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className={`text-[10px] font-extrabold px-1.5 py-0.5 rounded ${trade.action === "BUY" ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"}`}>
-                          {trade.action}
-                        </span>
-                        <span className="font-semibold text-sm text-slate-200">{trade.symbol}</span>
-                      </div>
-                      <p className="text-[11px] text-slate-500 mt-1">Precio: ${trade.price_executed.toFixed(2)}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm font-bold text-slate-100">
-                        {trade.action === "BUY" ? "+" : "-"}{trade.quantity.toFixed(3)}
-                      </p>
-                      <p className="text-[10px] text-slate-400 mt-0.5">
-                        ${trade.amount_usd.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
+          {/* Feature 3 */}
+          <div className="bg-slate-900/30 border border-slate-900 rounded-2xl p-6 text-left backdrop-blur-sm relative hover:border-slate-800 transition">
+            <div className="text-emerald-400 mb-4 bg-emerald-500/5 w-10 h-10 rounded-lg flex items-center justify-center border border-emerald-500/10">
+              <Layers size={20} />
             </div>
+            <h3 className="font-bold text-base text-slate-100">Arquitectura Desacoplada</h3>
+            <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+              Aislamiento de lógica de trading a través de la interfaz abstracta `IBrokerAdapter`. Facilidad de 
+              escalabilidad para integrar brokers reales (Alpaca, IBKR) sin reescribir el frontend ni el core del motor.
+            </p>
+          </div>
+        </div>
+
+        {/* Tech Stack List */}
+        <div className="w-full pt-8 space-y-4">
+          <p className="text-[10px] font-bold tracking-widest text-slate-500 uppercase">Stack Tecnológico Utilizado</p>
+          <div className="flex flex-wrap justify-center gap-3">
+            <span className="bg-slate-900/60 border border-slate-800/80 px-3.5 py-1.5 rounded-full text-xs text-slate-300 flex items-center gap-1.5">
+              <CheckCircle size={12} className="text-emerald-400" /> Next.js 15
+            </span>
+            <span className="bg-slate-900/60 border border-slate-800/80 px-3.5 py-1.5 rounded-full text-xs text-slate-300 flex items-center gap-1.5">
+              <CheckCircle size={12} className="text-emerald-400" /> FastAPI
+            </span>
+            <span className="bg-slate-900/60 border border-slate-800/80 px-3.5 py-1.5 rounded-full text-xs text-slate-300 flex items-center gap-1.5">
+              <CheckCircle size={12} className="text-emerald-400" /> PostgreSQL + Supabase
+            </span>
+            <span className="bg-slate-900/60 border border-slate-800/80 px-3.5 py-1.5 rounded-full text-xs text-slate-300 flex items-center gap-1.5">
+              <CheckCircle size={12} className="text-emerald-400" /> Docker
+            </span>
           </div>
         </div>
       </main>
+
+      {/* Footer */}
+      <footer className="w-full border-t border-slate-900 py-6 text-center text-xs text-slate-500 relative z-10 bg-slate-950">
+        <p>Trabajo de Fin de Máster © 2026 - Juan Manuel Garcia Jurado</p>
+      </footer>
     </div>
   );
 }

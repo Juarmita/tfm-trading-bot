@@ -18,7 +18,7 @@ export default function InvestPage() {
         <header className="flex items-center justify-between pb-6 border-b border-slate-800">
           <div className="flex items-center gap-3">
             <Link
-              href="/"
+              href="/dashboard"
               className="bg-emerald-500 text-slate-950 p-2 rounded-lg font-bold flex items-center justify-center transition hover:bg-emerald-400"
             >
               <TrendingUp size={20} />
@@ -29,7 +29,7 @@ export default function InvestPage() {
             </div>
           </div>
           <Link
-            href="/"
+            href="/dashboard"
             className="text-sm text-slate-400 hover:text-white transition font-medium"
           >
             Volver al Panel
