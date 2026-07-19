@@ -290,10 +290,8 @@ export default function InvestmentFlowDrawer({ isOpen, onClose }: InvestmentFlow
                 <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
                   Justificación de la IA
                 </h4>
-                <div className="p-4 bg-slate-950 border border-slate-800 rounded-xl overflow-hidden text-xs space-y-4 max-h-60 overflow-y-auto text-slate-300 font-mono">
-                  {decisionOutput.reasoning_markdown.split("\n\n").map((para: string, i: number) => (
-                    <p key={i}>{para}</p>
-                  ))}
+                <div className="p-5 bg-slate-950 border border-slate-800 rounded-xl max-h-80 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-800">
+                  {renderFormattedMarkdown(decisionOutput.reasoning_markdown)}
                 </div>
               </div>
 
@@ -355,4 +353,83 @@ export default function InvestmentFlowDrawer({ isOpen, onClose }: InvestmentFlow
       </div>
     </div>
   );
+}
+
+// Helper to format basic markdown (Headers, lists, bold text) in a clean sans-serif font
+function renderFormattedMarkdown(text: string) {
+  if (!text) return null;
+
+  const lines = text.split("\n");
+  return (
+    <div className="space-y-3 text-slate-300 font-sans text-xs leading-relaxed">
+      {lines.map((line, idx) => {
+        const trimmed = line.trim();
+        if (!trimmed) return <div key={idx} className="h-1" />;
+
+        // Header ###
+        if (trimmed.startsWith("###")) {
+          return (
+            <h5 key={idx} className="text-xs font-bold text-emerald-400 mt-4 mb-1">
+              {parseBoldText(trimmed.replace(/^###\s*/, ""))}
+            </h5>
+          );
+        }
+        // Header ##
+        if (trimmed.startsWith("##")) {
+          return (
+            <h4 key={idx} className="text-sm font-extrabold text-emerald-400 mt-5 mb-2">
+              {parseBoldText(trimmed.replace(/^##\s*/, ""))}
+            </h4>
+          );
+        }
+        // Header #
+        if (trimmed.startsWith("#")) {
+          return (
+            <h3 key={idx} className="text-base font-black text-emerald-400 mt-5 mb-2">
+              {parseBoldText(trimmed.replace(/^#\s*/, ""))}
+            </h3>
+          );
+        }
+
+        // Bullet point
+        if (trimmed.startsWith("-") || trimmed.startsWith("*")) {
+          return (
+            <div key={idx} className="flex items-start gap-2 pl-1.5">
+              <span className="text-emerald-500 mt-1 shrink-0 text-xs leading-none">•</span>
+              <span className="text-slate-300">{parseBoldText(trimmed.replace(/^[-*]\s*/, ""))}</span>
+            </div>
+          );
+        }
+
+        // Numbered list
+        if (/^\d+\./.test(trimmed)) {
+          const numMatch = trimmed.match(/^(\d+\.)\s*/);
+          const num = numMatch ? numMatch[1] : "";
+          return (
+            <div key={idx} className="flex items-start gap-2 pl-1.5">
+              <span className="text-emerald-500 font-bold shrink-0">{num}</span>
+              <span className="text-slate-300">{parseBoldText(trimmed.replace(/^\d+\.\s*/, ""))}</span>
+            </div>
+          );
+        }
+
+        // Normal paragraph
+        return <p key={idx} className="text-slate-400">{parseBoldText(trimmed)}</p>;
+      })}
+    </div>
+  );
+}
+
+function parseBoldText(text: string) {
+  const parts = text.split(/(\*\*.*?\*\*)/g);
+  return parts.map((part, i) => {
+    if (part.startsWith("**") && part.endsWith("**")) {
+      return (
+        <strong key={i} className="font-extrabold text-slate-100">
+          {part.slice(2, -2)}
+        </strong>
+      );
+    }
+    return part;
+  });
 }
