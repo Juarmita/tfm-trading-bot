@@ -148,13 +148,13 @@ class AIEngineService:
         session_id = uuid4()
         symbol_upper = symbol.upper()
 
-        # 1. Obtener Histórico (1 año para calcular SMA200 correctamente)
+        # 1. Obtener Histórico (1 año para calcular SMA200/indicadores)
         ticker = yf.Ticker(symbol_upper)
         loop = asyncio.get_event_loop()
         df = await loop.run_in_executor(None, lambda: ticker.history(period="1y"))
 
-        if df.empty or len(df) < 200:
-            raise ValueError(f"Símbolo {symbol_upper} no tiene datos históricos suficientes (mínimo 200 días necesarios).")
+        if df.empty or len(df) == 0:
+            raise ValueError(f"El símbolo '{symbol_upper}' no existe en Yahoo Finance o ha sido deslistado. Verifica el ticker e inténtalo de nuevo (ej: AAPL, BTC-USD, MSFT, o ABF.L para Associated British Foods).")
 
         # 2. Cálculos Técnicos
         metrics = cls.calculate_technical_indicators(df)

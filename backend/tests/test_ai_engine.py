@@ -132,3 +132,59 @@ async def test_drawdown_risk_reduction(mock_ticker):
             assert output.allocated_capital == 500.00 # 50% de $1000
             assert len(output.orders) == 1
             assert "Excedido >25% - Asignación reducida en 50%" in output.reasoning_markdown
+
+
+@pytest.mark.asyncio
+@patch("yfinance.Ticker")
+async def test_analyze_and_decide_empty_dataframe_raises_error(mock_ticker):
+    # Simular DataFrame vacío
+    df = pd.DataFrame()
+    mock_instance = MagicMock()
+    mock_instance.history.return_value = df
+    mock_ticker.return_value = mock_instance
+
+    user_id = uuid4()
+    with pytest.raises(ValueError) as exc_info:
+        await AIEngineService.analyze_and_decide(
+            user_id=user_id,
+            symbol="INVALID_TICKER",
+            strategy_type="long_term",
+            available_capital=Decimal("1000.00")
+        )
+    assert "no existe en Yahoo Finance o ha sido deslistado" in str(exc_info.value)
+
+
+@pytest.mark.asyncio
+@patch("yfinance.Ticker")
+async def test_analyze_and_decide_short_history_succeeds(mock_ticker):
+    # Simular DataFrame con historial corto (5 días)
+    dates = pd.date_range(end="2026-07-18", periods=5)
+    prices = [100.0] * 5
+    df = pd.DataFrame({
+        "Open": prices,
+        "High": prices,
+        "Low": prices,
+        "Close": prices,
+        "Volume": [1000] * 5
+    }, index=dates)
+
+    mock_instance = MagicMock()
+    mock_instance.history.return_value = df
+    mock_instance.info = {
+        "forwardPE": 15.0,
+        "dividendYield": 0.0,
+        "debtToEquity": 50.0
+    }
+    mock_ticker.return_value = mock_instance
+
+    user_id = uuid4()
+    output = await AIEngineService.analyze_and_decide(
+        user_id=user_id,
+        symbol="NEWSTOCK",
+        strategy_type="short_term",
+        available_capital=Decimal("1000.00")
+    )
+    # Debe completar con éxito sin lanzar ValueError
+    assert isinstance(output, AIDecisionOutput)
+    assert output.symbol == "NEWSTOCK"
+
