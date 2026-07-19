@@ -24,11 +24,16 @@ Esta sección certifica el cumplimiento riguroso de cada uno de los requerimient
 Para facilitar una auditoría técnica rápida y fluida de este Trabajo de Fin de Máster por parte de los examinadores, se detallan las siguientes directrices de acceso y verificación:
 
 ### 1. Enlace de Producción y Acceso Rápido (Sin Registro Mandatorio)
-- **URL pública de despliegue**: [https://frontend-97838ntlj-juarmitas-projects.vercel.app](https://frontend-97838ntlj-juarmitas-projects.vercel.app)
-- **Acceso Demo Integrado**: Los evaluadores pueden iniciar sesión directamente en producción con las siguientes credenciales de prueba preestablecidas en la base de datos:
-  - **Email**: `evaluador@tfm.com`
-  - **Contraseña**: `tfm123456`
-  - **Billetera de pruebas**: `$10,000.00 USD` precargados de forma sincronizada en la tabla `wallets`.
+- **URL pública de despliegue**: [https://frontend-five-kohl-4rc8ugx0s0.vercel.app](https://frontend-five-kohl-4rc8ugx0s0.vercel.app)
+- **Acceso Demo Integrado**: Los evaluadores y el autor pueden iniciar sesión directamente en producción con las siguientes credenciales de prueba preestablecidas en la base de datos:
+  - **Cuenta de Evaluador (Demo)**:
+    - **Email**: `evaluador@tfm.com`
+    - **Contraseña**: `tfm123456`
+    - **Billetera**: `$10,000.00 USD` precargados en la tabla `wallets`.
+  - **Cuenta de Administrador (Autor)**:
+    - **Email**: `admin@tfm.com`
+    - **Contraseña**: `admin123456`
+    - **Billetera**: `$50,000.00 USD` precargados en la tabla `wallets`.
 
 ### 2. Configuración y Clonado en Local (Setup en 5 Minutos)
 Puedes descargar y levantar la plataforma de forma local para pruebas exhaustivas:

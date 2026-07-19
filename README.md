@@ -71,7 +71,11 @@ npm install --legacy-peer-deps
 # Ejecutar en dev
 npm run dev
 ```
-Accede a `http://localhost:3000/invest` desde tu navegador. El sistema iniciará en desarrollo con una cuenta demo precargada con un balance inicial ficticio de **$10,000.00 USD** para probar inferencias directamente.
+Accede a `http://localhost:3000` desde tu navegador para ver la Landing Page de presentación del TFM. Desde allí puedes iniciar sesión con las credenciales de prueba preestablecidas en la base de datos:
+- **Evaluador (Demo)**: `evaluador@tfm.com` / `tfm123456` (Billetera: `$10,000.00 USD`)
+- **Administrador (Autor)**: `admin@tfm.com` / `admin123456` (Billetera: `$50,000.00 USD`)
+
+Una vez autenticado, serás redirigido al panel de control interactivo (`/dashboard`) donde podrás ingresar a realizar análisis cuantitativos en el módulo `/invest`.
 
 ---
 
@@ -107,7 +111,9 @@ tfm-trading-bot/
 ├── frontend/
 │   ├── src/
 │   │   ├── app/
+│   │   │   ├── dashboard/         # Panel interactivo con gráficas y KPIs
 │   │   │   ├── invest/            # Página y Drawer del flujo de inversión
+│   │   │   ├── login/             # Portal de autenticación con Suspense
 │   │   │   └── api/trading/       # Proxy seguro Next.js
 │   │   ├── components/investment/ # Componentes de ejecución UI
 │   │   ├── hooks/
@@ -154,8 +160,8 @@ El repositorio está alojado públicamente en GitHub:
 
 ## 3. Despliegue en producción
 
-- **Enlace de Producción**: El frontend está configurado y desplegado de forma continua en Vercel en la URL provisional: [https://tfm-trading-bot.vercel.app](https://tfm-trading-bot.vercel.app)
-- **FastAPI en Render / Fly.io**: El backend corre de forma contenerizada en Docker, sirviendo la API de producción.
+- **Enlace de Producción**: El frontend está configurado y desplegado de forma continua en Vercel en la URL: [https://frontend-five-kohl-4rc8ugx0s0.vercel.app](https://frontend-five-kohl-4rc8ugx0s0.vercel.app)
+- **FastAPI en Render**: El backend corre en Render.com expuesto bajo el subdominio de producción: [https://tfm-trading-bot.onrender.com](https://tfm-trading-bot.onrender.com)
 
 ### Pasos de Despliegue:
 1. Clonar el entorno e instalar Vercel CLI: `npm install -g vercel`.
@@ -167,7 +173,7 @@ El repositorio está alojado públicamente en GitHub:
 ## 4. Presentación de defensa
 
 El material de apoyo para la defensa académica del TFM se encuentra estructurado en el repositorio:
-- **Diapositivas**: Disponibles en `/docs/presentacion.pptx` (y opcionalmente mediante el enlace de visor web de Canva/Google Slides provisto al tribunal).
+- **Diapositivas y Presentación**: Disponible en el archivo estructurado para defensa académica [docs/presentacion_defensa.md](file:///c:/Users/juanm/Desktop/TGM/tfm-bot-trading/docs/presentacion_defensa.md).
 - **Índice de la Defensa**:
   1. Introducción y Planteamiento del Problema
   2. Objetivos Académicos y Diferenciación

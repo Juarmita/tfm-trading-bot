@@ -12,8 +12,10 @@ export async function POST(request: NextRequest) {
   }
   headers.set("Content-Type", "application/json");
 
+  let body: any = null;
+
   try {
-    const body = await request.json();
+    body = await request.json();
 
     const res = await fetch(targetUrl, {
       method: "POST",
@@ -37,13 +39,8 @@ export async function POST(request: NextRequest) {
     // Fallback dinámico para demostraciones locales o modo Demo en producción
     const isDemo = process.env.NEXT_PUBLIC_DEMO_MODE === "true" || process.env.NODE_ENV === "development";
     if (isDemo) {
-      let symbol = "AAPL";
-      let amount = 500;
-      try {
-        const body = await request.clone().json();
-        symbol = (body.symbol || "AAPL").toUpperCase();
-        amount = Number(body.available_capital) || 500;
-      } catch (e) {}
+      const symbol = (body?.symbol || "AAPL").toUpperCase();
+      const amount = Number(body?.available_capital) || 500;
 
       const mockData = {
         session_id: "c07469a4-23db-4e78-9e5b-b9d9dfdbaf55",

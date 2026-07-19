@@ -27,3 +27,6 @@ supabase/*
 .vscode/
 .idea/
 IDE/.vscode/
+
+.vercel
+.env*
