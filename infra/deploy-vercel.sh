@@ -45,10 +45,15 @@ if [ -f "$ENV_FILE" ]; then
 fi
 
 echo "$SUPABASE_URL" | vercel env add NEXT_PUBLIC_SUPABASE_URL production || true
+echo "$SUPABASE_URL" | vercel env add NEXT_PUBLIC_SUPABASE_URL preview || true
 echo "$SUPABASE_KEY" | vercel env add NEXT_PUBLIC_SUPABASE_ANON_KEY production || true
+echo "$SUPABASE_KEY" | vercel env add NEXT_PUBLIC_SUPABASE_ANON_KEY preview || true
 echo "$FASTAPI_URL" | vercel env add FASTAPI_BASE_URL production || true
+echo "$FASTAPI_URL" | vercel env add FASTAPI_BASE_URL preview || true
 echo "true" | vercel env add NPM_CONFIG_LEGACY_PEER_DEPS production || true
+echo "true" | vercel env add NPM_CONFIG_LEGACY_PEER_DEPS preview || true
 echo "true" | vercel env add NEXT_PUBLIC_DEMO_MODE production || true
+echo "true" | vercel env add NEXT_PUBLIC_DEMO_MODE preview || true
 
 echo "🏗️ 3. Construyendo y desplegando bundle en producción..."
 # Desplegar en modo producción y extraer la URL final arrojada
