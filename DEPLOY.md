@@ -82,3 +82,50 @@ Para mitigar esto, hemos diseñado un **Modo de Demostración Local de Alta Resi
   1. En una consola en `backend/`: `uv run fastapi dev app/main.py --port 8000`
   2. En otra consola en `frontend/`: `npm run dev`
   3. Navega a `http://localhost:3000/invest` y ejecuta el Drawer. El tribunal presenciará el análisis en vivo, cálculos financieros e histórico simulado sin riesgos de conexión.
+
+---
+
+## 6. Reproducibilidad para Tribunal (Auditoría Académica)
+
+Para verificar y auditar el sistema, los miembros del tribunal pueden ejecutar los siguientes comandos y validaciones en un entorno limpio:
+
+### A. Verificación del Servidor y Motor Cuantitativo (Backend)
+```bash
+cd backend
+uv sync
+# Ejecutar las 18 pruebas unitarias automatizadas
+uv run pytest
+```
+
+### B. Verificación de la Interfaz y Tipado (Frontend)
+```bash
+cd frontend
+npm install --legacy-peer-deps
+# Comprobación estricta de tipos TypeScript
+npm run typecheck
+# Compilación del bundle optimizado para producción
+npm run build
+```
+
+### C. Inspección de Diferencias en Esquemas de Bases de Datos
+```bash
+# Validar migraciones locales
+supabase db diff
+```
+
+### D. Vista Previa de Despliegue Frontend
+```bash
+# Ejecutar despliegue de previsualización en Vercel
+vercel preview
+```
+
+### E. Credenciales de Demo Seguras para Pruebas en Vivo
+*   **Perfil Evaluador TFM (Simulación)**:
+    *   **Email**: `evaluador@tfm.com`
+    *   **Contraseña**: `tfm123456`
+    *   **Saldo**: `$10,000.00 USD` (Semilla Supabase)
+*   **Perfil Administrador**:
+    *   **Email**: `admin@tfm.com`
+    *   **Contraseña**: `admin123456`
+    *   **Saldo**: `$50,000.00 USD` (Semilla Supabase)
+

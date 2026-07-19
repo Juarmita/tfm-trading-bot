@@ -86,45 +86,49 @@ El repositorio está organizado bajo un enfoque modular, manteniendo una estrict
 ```text
 tfm-trading-bot/
 ├── .github/workflows/
-│   └── ci.yml                     # Pipeline de CI (Lint + Pytest en dev)
+├── DEPLOY.md                      # Guía de despliegue principal en producción
+├── README.md                      # Documento de presentación principal
 ├── backend/
 │   ├── app/
 │   │   ├── api/v1/
 │   │   │   ├── market.py          # Endpoints de consulta de mercado
-│   │   │   └── trading.py         # Endpoint del motor de IA y Broker
+│   │   │   └── trading.py         # Endpoints de operaciones y portafolio
 │   │   ├── core/
-│   │   │   ├── broker_adapter.py  # Abstracciones y esquemas del Broker
-│   │   │   ├── config.py          # Configuración Pydantic de variables
-│   │   │   └── dependencies.py    # Inyección de adaptador de Broker
+│   │   │   ├── broker_adapter.py  # Abstracciones del Broker
+│   │   │   ├── config.py          # Carga de variables de entorno
+│   │   │   └── dependencies.py    # Inyección de dependencias
 │   │   ├── services/
-│   │   │   ├── ai_engine.py       # Algoritmos cuantitativos y razonador
-│   │   │   ├── market_data.py     # Descargas de Ticker y caché doble nivel
-│   │   │   ├── demo_broker.py     # Implementación transaccional Demo
-│   │   │   └── order_executor.py  # Mapeo y transmisión de órdenes
-│   │   └── main.py                # Punto de entrada de la app FastAPI
+│   │   │   ├── ai_engine.py       # Algoritmo de scoring y razonador
+│   │   │   ├── market_data.py     # Descarga de datos y tipos de cambio
+│   │   │   ├── demo_broker.py     # Simulación ACID transaccional
+│   │   │   └── order_executor.py  # Ejecución de órdenes de mercado
+│   │   └── main.py                # Entrada principal FastAPI
 │   ├── tests/
-│   │   ├── test_ai_engine.py      # Cobertura del motor cuantitativo
-│   │   ├── test_broker.py         # Cobertura del broker y dependencias
-│   │   └── test_market_data.py    # Cobertura de descargas y caché
-│   ├── pyproject.toml             # Configuración del entorno de Python
-│   └── Dockerfile                 # Contenerización del backend
+│   │   ├── test_ai_engine.py      # Tests del motor algorítmico y short history
+│   │   ├── test_broker.py         # Tests del broker y balance insuficiente
+│   │   ├── test_main.py           # Tests de integridad de endpoints básicos
+│   │   ├── test_market_data.py    # Tests de descargas de yfinance y caché
+│   │   └── test_portfolio.py      # Tests de agrupación y ROI de portafolio
+│   ├── pyproject.toml             # Dependencias del backend (Poetry)
+│   └── Dockerfile                 # Contenerización Docker para producción
 ├── frontend/
 │   ├── src/
 │   │   ├── app/
-│   │   │   ├── dashboard/         # Panel interactivo con gráficas y KPIs
-│   │   │   ├── invest/            # Página y Drawer del flujo de inversión
-│   │   │   ├── login/             # Portal de autenticación con Suspense
-│   │   │   └── api/trading/       # Proxy seguro Next.js
-│   │   ├── components/investment/ # Componentes de ejecución UI
+│   │   │   ├── dashboard/         # Dashboard principal con métricas
+│   │   │   ├── invest/            # Interfaz de simulación y Drawer de inversión
+│   │   │   ├── login/             # Control de accesos seguro
+│   │   │   ├── portfolio/         # Vista consolidada del portafolio del usuario
+│   │   │   └── api/trading/       # Proxy local Next.js
+│   │   ├── components/investment/ # Drawer de inversión y hooks del flujo
 │   │   ├── hooks/
-│   │   │   └── useSession.ts      # Estado de sesión y balance en tiempo real
+│   │   │   └── useSession.ts      # Realtime balances e info de sesión
 │   │   └── lib/
-│   │       ├── api/client.ts      # Cliente de comunicación Axios
-│   │       └── supabase/client.ts # Conexión tipada con Supabase JS
-│   ├── package.json               # Dependencias de NodeJS
+│   │       ├── api/client.ts      # Cliente de comunicación HTTP Axios
+│   │       └── supabase/client.ts # Inicialización del cliente JS Supabase
+│   ├── package.json               # Dependencias del frontend
 │   └── next.config.ts             # Configuración del bundler
 ├── supabase/
-│   └── migrations/                # Ficheros SQL de migración inicial
+│   └── migrations/                # Esquemas y semillas SQL para Supabase
 └── docs/
     └── presentacion.pptx          # Diapositivas de defensa académica
 ```
@@ -192,10 +196,12 @@ Para recrear el entorno académico y validar el correcto funcionamiento de las t
 # Iniciar las pruebas unitarias
 uv run pytest
 ```
-Batería de pruebas que verifica la reproducibilidad:
-- `test_ai_engine.py`: Valida que las penalizaciones de riesgo y el formato Markdown cumplan exactamente con la rúbrica.
-- `test_broker.py`: Simula slippage y latencia para comprobar que las billeteras se actualizan de forma consistente (ACID).
-- `test_market_data.py`: Verifica que la recolección local de quotes y el almacenamiento en caché LRU operen bajo el límite de consumo de API.
+Batería de pruebas que verifica la reproducibilidad (18 tests unitarios pasados):
+- `test_ai_engine.py`: Valida que las penalizaciones de riesgo, formatos de reporte de justificación y soporte para tickers de historial corto operen según lo estipulado.
+- `test_broker.py`: Simula slippage y latencia para comprobar la consistencia atómica (ACID) del balance de la billetera al ejecutar órdenes de compra y venta.
+- `test_market_data.py`: Verifica la obtención de cotizaciones, descargas históricas y el funcionamiento del almacenamiento en caché de doble nivel.
+- `test_portfolio.py`: Valida los cálculos financieros de agregación de posiciones netas, coste medio y retorno de inversión (ROI) del portafolio.
+- `test_main.py`: Asegura la respuesta y salud básica de los endpoints del servidor FastAPI.
 
 ---
 
