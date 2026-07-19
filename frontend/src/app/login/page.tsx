@@ -1,11 +1,11 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase/client";
 import { TrendingUp, Mail, Lock, ShieldAlert, Github, Loader2 } from "lucide-react";
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectedFrom = searchParams.get("redirectedFrom") || "/dashboard";
@@ -162,5 +162,18 @@ export default function LoginPage() {
         </button>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-slate-950 text-slate-400">
+        <Loader2 className="animate-spin text-emerald-500 mr-2" size={24} />
+        <span>Cargando portal de acceso...</span>
+      </div>
+    }>
+      <LoginForm />
+    </Suspense>
   );
 }
