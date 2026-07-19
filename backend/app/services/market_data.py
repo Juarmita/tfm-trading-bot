@@ -314,11 +314,35 @@ class MarketDataService:
             news_items = []
             if raw_news:
                 for item in raw_news[:limit]:
+                    content = item.get("content", {})
+                    if content:
+                        title = content.get("title") or item.get("title", "Sin Título")
+                        provider = content.get("provider", {})
+                        publisher = provider.get("displayName") or provider.get("name") or item.get("publisher", "Desconocido")
+                        click_url = content.get("clickThroughUrl", {})
+                        canon_url = content.get("canonicalUrl", {})
+                        link = click_url.get("url") or canon_url.get("url") or item.get("link", "#")
+                        pub_date_str = content.get("pubDate")
+                        if pub_date_str:
+                            try:
+                                if pub_date_str.endswith("Z"):
+                                    pub_date_str = pub_date_str[:-1] + "+00:00"
+                                provider_publish_time = datetime.fromisoformat(pub_date_str)
+                            except Exception:
+                                provider_publish_time = datetime.now(timezone.utc)
+                        else:
+                            provider_publish_time = datetime.fromtimestamp(item.get("providerPublishTime", 0), timezone.utc)
+                    else:
+                        title = item.get("title", "Sin Título")
+                        publisher = item.get("publisher", "Desconocido")
+                        link = item.get("link", "#")
+                        provider_publish_time = datetime.fromtimestamp(item.get("providerPublishTime", 0), timezone.utc)
+
                     news_items.append(NewsItem(
-                        title=item.get("title", "Sin Título"),
-                        publisher=item.get("publisher", "Desconocido"),
-                        link=item.get("link", "#"),
-                        provider_publish_time=datetime.fromtimestamp(item.get("providerPublishTime", 0), timezone.utc)
+                        title=title,
+                        publisher=publisher,
+                        link=link,
+                        provider_publish_time=provider_publish_time
                     ))
 
             log_structured(symbol, False, (time.time() - start_time) * 1000, "yfinance")
