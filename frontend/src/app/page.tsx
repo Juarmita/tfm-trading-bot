@@ -11,15 +11,94 @@ import {
   Layers,
   CheckCircle,
   Github,
+  TrendingDown,
+  RefreshCw,
+  Info,
 } from "lucide-react";
+
+type StockQuote = {
+  symbol: string;
+  price: number;
+  change: number;
+  change_pct: number;
+};
 
 export default function LandingPage() {
   const { user } = useSession();
   const [mounted, setMounted] = useState(false);
+  const [marketData, setMarketData] = useState<StockQuote[]>([]);
+  const [isLoadingMarket, setIsLoadingMarket] = useState(true);
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // Cargar Ganadoras y Perdedoras del Día
+  useEffect(() => {
+    if (!mounted) return;
+
+    const fetchMarketSummary = async () => {
+      setIsLoadingMarket(true);
+      const symbols = ["AAPL", "MSFT", "NVDA", "TSLA", "AMZN", "META", "AMD", "NFLX"];
+      
+      try {
+        // Intentar obtener los datos del Backend FastAPI a través de la ruta proxy
+        const res = await fetch(`/api/market/quotes/${symbols.join(",")}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data) && data.length > 0) {
+            setMarketData(data);
+            setIsLoadingMarket(false);
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn("Fallo de conexión con FastAPI para quotes. Usando fallback directo de Yahoo Finance.");
+      }
+
+      // Fallback directo a Yahoo Finance en paralelo por si el backend está inactivo/durmiendo
+      try {
+        const promises = symbols.map(async (sym) => {
+          try {
+            const yfRes = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${sym}?interval=1d&range=5d`);
+            if (yfRes.ok) {
+              const yfData = await yfRes.json();
+              const result = yfData.chart?.result?.[0];
+              if (result) {
+                const meta = result.meta;
+                const closePrices = result.indicators?.quote?.[0]?.close?.filter((p: any) => p !== null && p !== undefined) || [];
+                const price = meta.regularMarketPrice || closePrices[closePrices.length - 1] || 150.0;
+                const prevClose = meta.chartPreviousClose || closePrices[closePrices.length - 2] || price;
+                const change = price - prevClose;
+                const change_pct = (change / prevClose) * 100;
+                return {
+                  symbol: sym,
+                  price,
+                  change,
+                  change_pct
+                };
+              }
+            }
+          } catch (e) {
+            console.error(`Error de fallback para ${sym}:`, e);
+          }
+          return null;
+        });
+
+        const results = await Promise.all(promises);
+        const validResults = results.filter((r): r is StockQuote => r !== null);
+        if (validResults.length > 0) {
+          setMarketData(validResults);
+        }
+      } catch (err) {
+        console.error("Error crítico al obtener quotes del mercado:", err);
+      } finally {
+        setIsLoadingMarket(false);
+      }
+    };
+
+    fetchMarketSummary();
+  }, [mounted]);
 
   if (!mounted) {
     return (
@@ -28,6 +107,15 @@ export default function LandingPage() {
       </div>
     );
   }
+
+  // Clasificar acciones en Ganadoras y Perdedoras
+  const gainers = [...marketData]
+    .filter((stock) => stock.change_pct >= 0)
+    .sort((a, b) => b.change_pct - a.change_pct);
+
+  const losers = [...marketData]
+    .filter((stock) => stock.change_pct < 0)
+    .sort((a, b) => a.change_pct - b.change_pct);
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col relative overflow-hidden font-sans">
@@ -65,7 +153,7 @@ export default function LandingPage() {
       </header>
 
       {/* Hero Section */}
-      <main className="flex-1 flex flex-col justify-center items-center text-center px-6 py-12 relative z-10 max-w-4xl mx-auto space-y-8">
+      <main className="flex-1 flex flex-col justify-center items-center text-center px-6 py-12 relative z-10 max-w-5xl mx-auto space-y-12">
         <div className="space-y-4">
           <span className="text-xs font-bold text-emerald-400 uppercase tracking-widest bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/15">
             Trabajo de Fin de Máster 2026
@@ -83,19 +171,115 @@ export default function LandingPage() {
           </p>
         </div>
 
-        {/* CTA Buttons */}
-        <div className="flex flex-col sm:flex-row gap-4 pt-2">
+        {/* Credenciales de Acceso e Inicio */}
+        <div className="bg-slate-900/40 border border-slate-900 rounded-2xl p-6 max-w-lg w-full backdrop-blur-sm space-y-4 text-left">
+          <div className="flex items-center gap-2 text-emerald-400">
+            <Info size={16} />
+            <h4 className="font-bold text-sm uppercase tracking-wider">Credenciales de Acceso Autorizadas</h4>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+            <div className="bg-slate-950/60 p-3 rounded-lg border border-slate-900">
+              <p className="font-bold text-slate-300">👨‍💼 Cuenta Evaluador (Demo)</p>
+              <p className="text-slate-400 mt-1">Email: <span className="font-mono text-slate-200">evaluador@tfm.com</span></p>
+              <p className="text-slate-400">Clave: <span className="font-mono text-slate-200">tfm123456</span></p>
+            </div>
+            <div className="bg-slate-950/60 p-3 rounded-lg border border-slate-900">
+              <p className="font-bold text-slate-300">🔑 Cuenta Administrador (Admin)</p>
+              <p className="text-slate-400 mt-1">Email: <span className="font-mono text-slate-200">admin@tfm.com</span></p>
+              <p className="text-slate-400">Clave: <span className="font-mono text-slate-200">admin123456</span></p>
+            </div>
+          </div>
+
           <Link
             href={user ? "/dashboard" : "/login"}
-            className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold px-8 py-4 rounded-xl shadow-lg shadow-emerald-500/10 hover:shadow-emerald-400/20 active:scale-[0.98] transition flex items-center justify-center gap-2 group text-base"
+            className="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold py-3 px-4 rounded-xl shadow-lg shadow-emerald-500/10 hover:shadow-emerald-400/20 active:scale-[0.98] transition flex items-center justify-center gap-2 group text-sm"
           >
-            <span>Acceder al Panel de Control</span>
-            <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
+            <span>Acceder al Panel de Inversión</span>
+            <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
           </Link>
         </div>
 
+        {/* Resumen del Mercado: Ganadoras y Perdedoras del Día */}
+        <section className="w-full space-y-6">
+          <div className="text-center space-y-2">
+            <h3 className="text-xl font-bold text-white tracking-wide">Resumen del Mercado del Día</h3>
+            <p className="text-xs text-slate-500">Últimos movimientos de acciones líderes de tecnología (Datos de Yahoo Finance)</p>
+          </div>
+
+          {isLoadingMarket ? (
+            <div className="flex items-center justify-center py-12 text-slate-500 gap-2">
+              <RefreshCw className="animate-spin text-emerald-500" size={20} />
+              <span>Sincronizando cotizaciones de mercado...</span>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 w-full max-w-4xl mx-auto">
+              {/* Ganadoras del día */}
+              <div className="bg-slate-900/20 border border-emerald-950/30 rounded-2xl p-6 backdrop-blur-sm space-y-4">
+                <div className="flex items-center gap-2 text-emerald-400 border-b border-emerald-950/40 pb-3">
+                  <TrendingUp size={20} />
+                  <h4 className="font-extrabold text-sm uppercase tracking-wider">Ganadoras del Día</h4>
+                </div>
+                <div className="space-y-3">
+                  {gainers.length > 0 ? (
+                    gainers.map((stock) => (
+                      <div
+                        key={stock.symbol}
+                        className="flex items-center justify-between p-3 rounded-xl bg-slate-950/40 border border-slate-900 hover:border-slate-800/80 transition"
+                      >
+                        <div className="text-left">
+                          <p className="font-extrabold text-sm text-slate-200">{stock.symbol}</p>
+                          <p className="text-[10px] text-slate-500">Tecnología de Mercado</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-bold text-sm text-slate-200">${stock.price.toFixed(2)}</p>
+                          <span className="inline-flex items-center gap-0.5 text-xs text-emerald-400 font-extrabold mt-0.5">
+                            +{stock.change_pct.toFixed(2)}%
+                          </span>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-xs text-slate-500 py-6">Sin acciones alcistas registradas hoy.</p>
+                  )}
+                </div>
+              </div>
+
+              {/* Perdedoras del día */}
+              <div className="bg-slate-900/20 border border-red-950/30 rounded-2xl p-6 backdrop-blur-sm space-y-4">
+                <div className="flex items-center gap-2 text-red-400 border-b border-red-950/40 pb-3">
+                  <TrendingDown size={20} />
+                  <h4 className="font-extrabold text-sm uppercase tracking-wider">Perdedoras del Día</h4>
+                </div>
+                <div className="space-y-3">
+                  {losers.length > 0 ? (
+                    losers.map((stock) => (
+                      <div
+                        key={stock.symbol}
+                        className="flex items-center justify-between p-3 rounded-xl bg-slate-950/40 border border-slate-900 hover:border-slate-800/80 transition"
+                      >
+                        <div className="text-left">
+                          <p className="font-extrabold text-sm text-slate-200">{stock.symbol}</p>
+                          <p className="text-[10px] text-slate-500">Tecnología de Mercado</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-bold text-sm text-slate-200">${stock.price.toFixed(2)}</p>
+                          <span className="inline-flex items-center gap-0.5 text-xs text-red-400 font-extrabold mt-0.5">
+                            {stock.change_pct.toFixed(2)}%
+                          </span>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-xs text-slate-500 py-6">Sin acciones bajistas registradas hoy.</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </section>
+
         {/* Pillars / Key Features */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full pt-12">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full pt-6">
           {/* Feature 1 */}
           <div className="bg-slate-900/30 border border-slate-900 rounded-2xl p-6 text-left backdrop-blur-sm relative hover:border-slate-800 transition">
             <div className="text-emerald-400 mb-4 bg-emerald-500/5 w-10 h-10 rounded-lg flex items-center justify-center border border-emerald-500/10">
@@ -134,7 +318,7 @@ export default function LandingPage() {
         </div>
 
         {/* Tech Stack List */}
-        <div className="w-full pt-8 space-y-4">
+        <div className="w-full pt-4 space-y-4">
           <p className="text-[10px] font-bold tracking-widest text-slate-500 uppercase">Stack Tecnológico Utilizado</p>
           <div className="flex flex-wrap justify-center gap-3">
             <span className="bg-slate-900/60 border border-slate-800/80 px-3.5 py-1.5 rounded-full text-xs text-slate-300 flex items-center gap-1.5">

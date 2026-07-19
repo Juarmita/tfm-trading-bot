@@ -98,12 +98,10 @@ export function useSession() {
     };
   }, [user]);
 
-  const isDemo = process.env.NODE_ENV === "development" || process.env.NEXT_PUBLIC_DEMO_MODE === "true";
-
   return {
-    user: user || (isDemo ? ({ id: "3fa85f64-5717-4562-b3fc-2c963f66afa6", email: "demo@example.com" } as any) : null),
-    isLoading: isLoading && !isDemo,
+    user,
+    isLoading,
     refreshSession,
-    wallet: wallet || (isDemo ? { balance: 10000.00, currency: "USD" } : null),
+    wallet,
   };
 }

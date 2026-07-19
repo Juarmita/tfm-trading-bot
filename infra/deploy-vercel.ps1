@@ -52,8 +52,8 @@ try { $FastApiUrl | & vercel env add FASTAPI_BASE_URL production } catch { $_.Ex
 try { $FastApiUrl | & vercel env add FASTAPI_BASE_URL preview } catch { $_.Exception.Message }
 try { "true" | & vercel env add NPM_CONFIG_LEGACY_PEER_DEPS production } catch { $_.Exception.Message }
 try { "true" | & vercel env add NPM_CONFIG_LEGACY_PEER_DEPS preview } catch { $_.Exception.Message }
-try { "true" | & vercel env add NEXT_PUBLIC_DEMO_MODE production } catch { $_.Exception.Message }
-try { "true" | & vercel env add NEXT_PUBLIC_DEMO_MODE preview } catch { $_.Exception.Message }
+try { "false" | & vercel env add NEXT_PUBLIC_DEMO_MODE production } catch { $_.Exception.Message }
+try { "false" | & vercel env add NEXT_PUBLIC_DEMO_MODE preview } catch { $_.Exception.Message }
 
 Write-Host "🏗️ 3. Construyendo y desplegando bundle en producción..." -ForegroundColor Cyan
 # Desplegar en modo producción y extraer la URL final
