@@ -312,7 +312,7 @@ async def get_portfolio(user_id: UUID):
             cash = float(wallets[0]["balance"]) if wallets else 10000.0
 
             # 2. Obtener todos los trades asociados al usuario a través del JOIN inner con ai_trading_sessions
-            trades_url = f"{supabase_url}/rest/v1/trades?select=symbol,action,quantity,price_executed,amount_usd&ai_trading_sessions!inner(user_id)&ai_trading_sessions.user_id=eq.{user_id}"
+            trades_url = f"{supabase_url}/rest/v1/trades?select=symbol,action,quantity,price_executed,amount_usd,ai_trading_sessions!inner(user_id)&ai_trading_sessions.user_id=eq.{user_id}"
             trades_res = await client.get(trades_url, headers=headers)
             trades_res.raise_for_status()
             db_trades = trades_res.json()
