@@ -40,13 +40,18 @@ def get_current_user_id(credentials: HTTPAuthorizationCredentials = Depends(secu
             payload = jwt.get_unverified_claims(token)
         else:
             # Producción: verificación estricta de firma y audiencia (authenticated)
-            payload = jwt.decode(token, jwt_secret, algorithms=["HS256"], audience="authenticated")
+            payload = jwt.decode(token, jwt_secret, algorithms=["HS256", "RS256", "HS384", "HS512"], audience="authenticated")
         
         user_id = payload.get("sub")
         if not user_id:
             raise HTTPException(status_code=401, detail="El token no contiene el claim de identidad del usuario (sub).")
         return str(user_id)
     except JWTError as e:
+        try:
+            unverified_header = jwt.get_unverified_header(token)
+            logger.error(f"Error de validación JWT: {str(e)}. Header de token no verificado: {unverified_header}")
+        except Exception:
+            pass
         if demo_mode:
             try:
                 unverified_claims = jwt.get_unverified_claims(token)
