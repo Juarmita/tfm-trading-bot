@@ -25,7 +25,10 @@ Para facilitar una auditoría técnica rápida y fluida de este Trabajo de Fin d
 
 ### 1. Enlace de Producción y Acceso Rápido (Sin Registro Mandatorio)
 - **URL pública de despliegue**: [https://frontend-97838ntlj-juarmitas-projects.vercel.app](https://frontend-97838ntlj-juarmitas-projects.vercel.app)
-- **Acceso Demo Integrado**: Si abres el módulo de inversión en local o en producción, el sistema detecta de forma segura el entorno de desarrollo/evaluación local y montará un **perfil semilla con un saldo virtual de $10,000.00 USD**. No se requiere crear una base de datos propia para verificar la interactividad.
+- **Acceso Demo Integrado**: Los evaluadores pueden iniciar sesión directamente en producción con las siguientes credenciales de prueba preestablecidas en la base de datos:
+  - **Email**: `evaluador@tfm.com`
+  - **Contraseña**: `tfm123456`
+  - **Billetera de pruebas**: `$10,000.00 USD` precargados de forma sincronizada en la tabla `wallets`.
 
 ### 2. Configuración y Clonado en Local (Setup en 5 Minutos)
 Puedes descargar y levantar la plataforma de forma local para pruebas exhaustivas:
