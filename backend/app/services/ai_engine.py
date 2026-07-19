@@ -263,7 +263,22 @@ class AIEngineService:
 
         # 6. Generar Plan de Ejecución
         price = metrics["price"]
-        qty = (final_capital / price) if price > 0 and final_capital > 0 else 0.0
+        
+        # Obtener moneda y tasa de cambio
+        currency = "USD"
+        try:
+            currency = ticker.info.get("currency", "USD")
+        except Exception:
+            if symbol_upper.endswith(".MC") or symbol_upper.endswith(".DE") or symbol_upper.endswith(".PA"):
+                currency = "EUR"
+            elif symbol_upper.endswith(".L"):
+                currency = "GBp"
+
+        from app.services.market_data import MarketDataService
+        usd_rate = await MarketDataService.get_usd_exchange_rate(currency)
+        price_usd = price * usd_rate
+        
+        qty = (final_capital / price_usd) if price_usd > 0 and final_capital > 0 else 0.0
         
         orders = []
         if decision != "HOLD" and qty > 0:
@@ -272,17 +287,19 @@ class AIEngineService:
                     action=decision,
                     symbol=symbol_upper,
                     quantity=round(qty, 4),
-                    price_estimated=round(price, 2),
-                    amount_usd=round(qty * price, 2),
+                    price_estimated=round(price_usd, 2),
+                    amount_usd=round(qty * price_usd, 2),
                     reason=f"Ejecución de orden automática gatillada por estrategia {strategy_type}."
                 )
             )
 
         # 7. Generar Markdown de Razonamiento Académico
+        price_display = f"${price:.2f} USD" if currency == "USD" else f"{price:.2f} {currency} (equiv. a ${price_usd:.2f} USD)"
+        
         reasoning_md = f"""# Decisión IA (ID: {session_id})
 
 ## 📊 Factores Técnicos
-- **Precio de Cierre Actual**: ${price:.2f} USD
+- **Precio de Cierre Actual**: {price_display}
 - **SMA (20 / 50 / 200)**: {metrics['sma20']:.2f} / {metrics['sma50']:.2f} / {metrics['sma200']:.2f}
 - **RSI (14)**: {metrics['rsi14']:.2f} ({"Sobrecompra (>70)" if metrics['rsi14'] > 70 else "Sobreventa (<30)" if metrics['rsi14'] < 30 else "Neutral"})
 - **MACD (12, 26, 9)**: MACD {metrics['macd']:.4f} (Señal: {metrics['macd_signal']:.4f})

@@ -351,3 +351,45 @@ class MarketDataService:
         except Exception as e:
             log_structured(symbol, False, (time.time() - start_time) * 1000, "yfinance", "failed")
             raise ValueError(f"Error al obtener noticias para {symbol}: {str(e)}")
+
+    @classmethod
+    async def get_usd_exchange_rate(cls, currency: str) -> float:
+        """Obtiene la tasa de cambio a USD para una moneda dada (ej: EUR, GBP, GBp)."""
+        if not hasattr(cls, "_exchange_rates_cache"):
+            cls._exchange_rates_cache = {}
+            cls._exchange_rates_timestamp = {}
+
+        if not currency:
+            return 1.0
+
+        currency_upper = currency.upper().strip()
+        if currency_upper in ("USD", "U.S. DOLLAR", "$"):
+            return 1.0
+
+        # Identificar si es peniques (GBp o GBX)
+        is_pence = currency_upper in ("GBP", "GBp", "GBX", "PENCE", "GBY")
+        lookup_curr = "GBP" if is_pence else currency_upper
+
+        now = time.time()
+        # Caché de 1 hora
+        if lookup_curr in cls._exchange_rates_cache and (now - cls._exchange_rates_timestamp.get(lookup_curr, 0) < 3600):
+            rate = cls._exchange_rates_cache[lookup_curr]
+            return (rate / 100.0) if is_pence else rate
+
+        try:
+            fx_ticker = yf.Ticker(f"{lookup_curr}USD=X")
+            loop = asyncio.get_event_loop()
+            df = await loop.run_in_executor(None, lambda: fx_ticker.history(period="1d"))
+            if not df.empty:
+                rate = float(df["Close"].iloc[-1])
+            else:
+                fallbacks = {"EUR": 1.09, "GBP": 1.28}
+                rate = fallbacks.get(lookup_curr, 1.0)
+        except Exception:
+            fallbacks = {"EUR": 1.09, "GBP": 1.28}
+            rate = fallbacks.get(lookup_curr, 1.0)
+
+        cls._exchange_rates_cache[lookup_curr] = rate
+        cls._exchange_rates_timestamp[lookup_curr] = now
+
+        return (rate / 100.0) if is_pence else rate

@@ -4,6 +4,7 @@ from uuid import UUID, uuid4
 from decimal import Decimal
 from typing import Literal, List
 import httpx
+import yfinance as yf
 from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel, Field
 from app.services.ai_engine import AIEngineService, AIDecisionOutput
@@ -356,7 +357,18 @@ async def get_portfolio(user_id: UUID):
                     current_price = avg_price
                     try:
                         quote = await MarketDataService.get_quote(sym)
-                        current_price = quote.price
+                        currency = "USD"
+                        try:
+                            ticker = yf.Ticker(sym)
+                            currency = ticker.info.get("currency", "USD")
+                        except Exception:
+                            if sym.endswith(".MC") or sym.endswith(".DE") or sym.endswith(".PA"):
+                                currency = "EUR"
+                            elif sym.endswith(".L"):
+                                currency = "GBp"
+                        
+                        usd_rate = await MarketDataService.get_usd_exchange_rate(currency)
+                        current_price = quote.price * usd_rate
                     except Exception as e:
                         logger.warning(f"No se pudo obtener el precio actual para {sym}: {e}")
 
