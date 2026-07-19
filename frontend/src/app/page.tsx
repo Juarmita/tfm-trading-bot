@@ -56,27 +56,15 @@ export default function LandingPage() {
         console.warn("Fallo de conexión con FastAPI para quotes. Usando fallback directo de Yahoo Finance.");
       }
 
-      // Fallback directo a Yahoo Finance en paralelo por si el backend está inactivo/durmiendo
+      // Fallback a través del proxy de Next.js por si el lote del backend falla temporalmente
       try {
         const promises = symbols.map(async (sym) => {
           try {
-            const yfRes = await fetch(`https://query1.finance.yahoo.com/v8/finance/chart/${sym}?interval=1d&range=5d`);
-            if (yfRes.ok) {
-              const yfData = await yfRes.json();
-              const result = yfData.chart?.result?.[0];
-              if (result) {
-                const meta = result.meta;
-                const closePrices = result.indicators?.quote?.[0]?.close?.filter((p: any) => p !== null && p !== undefined) || [];
-                const price = meta.regularMarketPrice || closePrices[closePrices.length - 1] || 150.0;
-                const prevClose = meta.chartPreviousClose || closePrices[closePrices.length - 2] || price;
-                const change = price - prevClose;
-                const change_pct = (change / prevClose) * 100;
-                return {
-                  symbol: sym,
-                  price,
-                  change,
-                  change_pct
-                };
+            const res = await fetch(`/api/market/quotes/${sym}`);
+            if (res.ok) {
+              const data = await res.json();
+              if (Array.isArray(data) && data.length > 0) {
+                return data[0];
               }
             }
           } catch (e) {

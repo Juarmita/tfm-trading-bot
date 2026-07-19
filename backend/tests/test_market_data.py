@@ -127,3 +127,37 @@ async def test_get_news_success(mock_ticker):
     assert news[0].title == "AAPL Stock Rallies"
     assert news[0].publisher == "Reuters"
     assert news[0].link == "https://reuters.com/aapl"
+
+@pytest.mark.asyncio
+@patch("yfinance.Ticker")
+async def test_get_quote_cache_hit_consecutive(mock_ticker):
+    # Simular DataFrame retornado por yfinance
+    mock_history = pd.DataFrame(
+        {
+            "Open": [170.0, 180.0],
+            "High": [175.0, 185.0],
+            "Low": [168.0, 178.0],
+            "Close": [172.0, 182.0],
+            "Volume": [1000, 2000],
+        },
+        index=[
+            pd.Timestamp("2026-07-16 09:30:00"),
+            pd.Timestamp("2026-07-17 09:30:00")
+        ]
+    )
+    mock_instance = MagicMock()
+    mock_instance.history.return_value = mock_history
+    mock_ticker.return_value = mock_instance
+
+    # Primera llamada (miss, setea caché)
+    quote1 = await MarketDataService.get_quote("AAPL_TEMP")
+    assert quote1.price == 182.0
+
+    # Segunda llamada (hit, lee de caché y parsea)
+    quote2 = await MarketDataService.get_quote("AAPL_TEMP")
+    assert quote2.price == 182.0
+
+    # Tercera llamada (hit, no debe fallar con fromisoformat: argument must be str)
+    quote3 = await MarketDataService.get_quote("AAPL_TEMP")
+    assert quote3.price == 182.0
+

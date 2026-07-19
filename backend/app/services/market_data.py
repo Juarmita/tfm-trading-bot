@@ -174,9 +174,11 @@ class MarketDataService:
         
         if cached:
             log_structured(symbol, True, (time.time() - start_time) * 1000, "cache")
-            # Parsear fecha almacenada
-            cached["timestamp"] = datetime.fromisoformat(cached["timestamp"])
-            return Quote(**cached)
+            # Parsear fecha almacenada (copiando para evitar mutación in-place del caché)
+            cached_copy = dict(cached)
+            if isinstance(cached_copy["timestamp"], str):
+                cached_copy["timestamp"] = datetime.fromisoformat(cached_copy["timestamp"])
+            return Quote(**cached_copy)
 
         # 3. Consultar yFinance
         try:
@@ -233,8 +235,10 @@ class MarketDataService:
             log_structured(symbol, True, (time.time() - start_time) * 1000, "cache")
             candles = []
             for candle in cached:
-                candle["date"] = datetime.fromisoformat(candle["date"])
-                candles.append(HistoricalCandle(**candle))
+                candle_copy = dict(candle)
+                if isinstance(candle_copy["date"], str):
+                    candle_copy["date"] = datetime.fromisoformat(candle_copy["date"])
+                candles.append(HistoricalCandle(**candle_copy))
             return candles
 
         # 2. Consultar yFinance
