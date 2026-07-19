@@ -171,31 +171,14 @@ export default function LandingPage() {
           </p>
         </div>
 
-        {/* Credenciales de Acceso e Inicio */}
-        <div className="bg-slate-900/40 border border-slate-900 rounded-2xl p-6 max-w-lg w-full backdrop-blur-sm space-y-4 text-left">
-          <div className="flex items-center gap-2 text-emerald-400">
-            <Info size={16} />
-            <h4 className="font-bold text-sm uppercase tracking-wider">Credenciales de Acceso Autorizadas</h4>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
-            <div className="bg-slate-950/60 p-3 rounded-lg border border-slate-900">
-              <p className="font-bold text-slate-300">👨‍💼 Cuenta Evaluador (Demo)</p>
-              <p className="text-slate-400 mt-1">Email: <span className="font-mono text-slate-200">evaluador@tfm.com</span></p>
-              <p className="text-slate-400">Clave: <span className="font-mono text-slate-200">tfm123456</span></p>
-            </div>
-            <div className="bg-slate-950/60 p-3 rounded-lg border border-slate-900">
-              <p className="font-bold text-slate-300">🔑 Cuenta Administrador (Admin)</p>
-              <p className="text-slate-400 mt-1">Email: <span className="font-mono text-slate-200">admin@tfm.com</span></p>
-              <p className="text-slate-400">Clave: <span className="font-mono text-slate-200">admin123456</span></p>
-            </div>
-          </div>
-
+        {/* Acceso al Panel */}
+        <div className="flex justify-center pt-2">
           <Link
             href={user ? "/dashboard" : "/login"}
-            className="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold py-3 px-4 rounded-xl shadow-lg shadow-emerald-500/10 hover:shadow-emerald-400/20 active:scale-[0.98] transition flex items-center justify-center gap-2 group text-sm"
+            className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold px-8 py-4 rounded-xl shadow-lg shadow-emerald-500/10 hover:shadow-emerald-400/20 active:scale-[0.98] transition flex items-center justify-center gap-2 group text-base"
           >
-            <span>Acceder al Panel de Inversión</span>
-            <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
+            <span>Acceder al Panel de Control</span>
+            <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
           </Link>
         </div>
 
