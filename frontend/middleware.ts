@@ -14,8 +14,10 @@ export async function middleware(request: NextRequest) {
     currentPath.startsWith(path)
   );
 
-  // Redirección segura a /login si no se encuentra cookie de sesión de Supabase
-  if (isProtectedPath && !hasSession) {
+  const isDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === "true" || process.env.NODE_ENV === "development";
+
+  // Redirección segura a /login si no se encuentra cookie de sesión de Supabase y no está en modo demo
+  if (isProtectedPath && !hasSession && !isDemoMode) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = "/login";
     redirectUrl.searchParams.set("redirectedFrom", currentPath);

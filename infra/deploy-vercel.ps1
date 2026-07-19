@@ -48,6 +48,7 @@ try { $SupabaseUrl | & vercel env add NEXT_PUBLIC_SUPABASE_URL production } catc
 try { $SupabaseKey | & vercel env add NEXT_PUBLIC_SUPABASE_ANON_KEY production } catch { $_.Exception.Message }
 try { $FastApiUrl | & vercel env add FASTAPI_BASE_URL production } catch { $_.Exception.Message }
 try { "true" | & vercel env add NPM_CONFIG_LEGACY_PEER_DEPS production } catch { $_.Exception.Message }
+try { "true" | & vercel env add NEXT_PUBLIC_DEMO_MODE production } catch { $_.Exception.Message }
 
 Write-Host "🏗️ 3. Construyendo y desplegando bundle en producción..." -ForegroundColor Cyan
 # Desplegar en modo producción y extraer la URL final
