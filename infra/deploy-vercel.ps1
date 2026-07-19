@@ -5,7 +5,7 @@
 $ErrorActionPreference = "Stop"
 
 Write-Host "==========================================================" -ForegroundColor Green
-Write-Host "🚀 Iniciando Despliegue del Frontend del TFM en Vercel (PowerShell)" -ForegroundColor Green
+Write-Host "[START] Iniciando Despliegue del Frontend del TFM en Vercel (PowerShell)" -ForegroundColor Green
 Write-Host "==========================================================" -ForegroundColor Green
 
 # Comprobar si Vercel CLI está instalado
@@ -18,10 +18,10 @@ if (-not (Get-Command "vercel" -ErrorAction SilentlyContinue)) {
 $ScriptPath = Split-Path -Parent $MyInvocation.MyCommand.Definition
 Set-Location "$ScriptPath\..\frontend"
 
-Write-Host "🔗 1. Vinculando proyecto con Vercel..." -ForegroundColor Cyan
+Write-Host "[LINK] 1. Vinculando proyecto con Vercel..." -ForegroundColor Cyan
 & vercel link --yes
 
-Write-Host "📝 2. Cargando e inyectando variables de entorno desde .env.local..." -ForegroundColor Cyan
+Write-Host "[ENV] 2. Cargando e inyectando variables de entorno desde .env.local..." -ForegroundColor Cyan
 
 $EnvFile = "$ScriptPath\..\frontend\.env.local"
 $SupabaseUrl = "https://gayixfotlfpxslcsgfqh.supabase.co"
@@ -29,7 +29,7 @@ $SupabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJ
 $FastApiUrl = "https://tfm-trading-bot.onrender.com"
 
 if (Test-Path $EnvFile) {
-    Write-Host "📖 Cargando variables de configuración desde $EnvFile..." -ForegroundColor Gray
+    Write-Host "[READ] Cargando variables de configuración desde $EnvFile..." -ForegroundColor Gray
     Get-Content $EnvFile | Foreach-Object {
         $line = $_.Trim()
         if ($line -and -not $line.StartsWith("#") -and $line.Contains("=")) {
@@ -44,6 +44,17 @@ if (Test-Path $EnvFile) {
     }
 }
 
+try { & vercel env rm NEXT_PUBLIC_SUPABASE_URL production --yes } catch { }
+try { & vercel env rm NEXT_PUBLIC_SUPABASE_URL preview --yes } catch { }
+try { & vercel env rm NEXT_PUBLIC_SUPABASE_ANON_KEY production --yes } catch { }
+try { & vercel env rm NEXT_PUBLIC_SUPABASE_ANON_KEY preview --yes } catch { }
+try { & vercel env rm FASTAPI_BASE_URL production --yes } catch { }
+try { & vercel env rm FASTAPI_BASE_URL preview --yes } catch { }
+try { & vercel env rm NPM_CONFIG_LEGACY_PEER_DEPS production --yes } catch { }
+try { & vercel env rm NPM_CONFIG_LEGACY_PEER_DEPS preview --yes } catch { }
+try { & vercel env rm NEXT_PUBLIC_DEMO_MODE production --yes } catch { }
+try { & vercel env rm NEXT_PUBLIC_DEMO_MODE preview --yes } catch { }
+
 try { $SupabaseUrl | & vercel env add NEXT_PUBLIC_SUPABASE_URL production } catch { $_.Exception.Message }
 try { $SupabaseUrl | & vercel env add NEXT_PUBLIC_SUPABASE_URL preview } catch { $_.Exception.Message }
 try { $SupabaseKey | & vercel env add NEXT_PUBLIC_SUPABASE_ANON_KEY production } catch { $_.Exception.Message }
@@ -55,17 +66,17 @@ try { "true" | & vercel env add NPM_CONFIG_LEGACY_PEER_DEPS preview } catch { $_
 try { "false" | & vercel env add NEXT_PUBLIC_DEMO_MODE production } catch { $_.Exception.Message }
 try { "false" | & vercel env add NEXT_PUBLIC_DEMO_MODE preview } catch { $_.Exception.Message }
 
-Write-Host "🏗️ 3. Construyendo y desplegando bundle en producción..." -ForegroundColor Cyan
+Write-Host "[BUILD] 3. Construyendo y desplegando bundle en producción..." -ForegroundColor Cyan
 # Desplegar en modo producción y extraer la URL final
 $DeployUrl = & vercel --prod --yes
 
 Write-Host "==========================================================" -ForegroundColor Green
-Write-Host "✅ Despliegue Finalizado Correctamente!" -ForegroundColor Green
+Write-Host "[SUCCESS] Despliegue Finalizado Correctamente!" -ForegroundColor Green
 Write-Host "URL de producción: $DeployUrl" -ForegroundColor Green
 Write-Host "==========================================================" -ForegroundColor Green
 
 # 4. Verificación de Health Check post-despliegue
-Write-Host "🔍 4. Verificando estado del servicio (Health Check)..." -ForegroundColor Cyan
+Write-Host "[CHECK] 4. Verificando estado del servicio (Health Check)..." -ForegroundColor Cyan
 $HealthUrl = "$DeployUrl/health"
 Write-Host "Enviando solicitud GET a: $HealthUrl" -ForegroundColor Gray
 
@@ -75,13 +86,13 @@ Start-Sleep -Seconds 3
 try {
     $Response = Invoke-WebRequest -Uri $HealthUrl -UseBasicParsing -TimeoutSec 10
     $HttpStatus = $Response.StatusCode
-    Write-Host "✅ Verificación exitosa. Status HTTP recibido: $HttpStatus" -ForegroundColor Green
+    Write-Host "[SUCCESS] Verificación exitosa. Status HTTP recibido: $HttpStatus" -ForegroundColor Green
 } catch {
     if ($_.Exception.Response) {
         $HttpStatus = [int]$_.Exception.Response.StatusCode
-        Write-Host "⚠️ Advertencia: Código HTTP devuelto es: $HttpStatus." -ForegroundColor Yellow
+        Write-Host "[WARNING] Código HTTP devuelto es: $HttpStatus." -ForegroundColor Yellow
     } else {
-        Write-Host "⚠️ Advertencia: No se pudo conectar al endpoint de Health Check." -ForegroundColor Yellow
+        Write-Host "[WARNING] No se pudo conectar al endpoint de Health Check." -ForegroundColor Yellow
     }
     Write-Host "Por favor, verifica el estado del despliegue en el panel de Vercel." -ForegroundColor Yellow
 }
