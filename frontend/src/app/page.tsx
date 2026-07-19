@@ -1,4 +1,5 @@
 import React from "react";
+import Link from "next/link";
 import {
   TrendingUp,
   Play,
@@ -8,6 +9,7 @@ import {
   Wallet,
   ArrowUpRight,
   RefreshCw,
+  Coins,
 } from "lucide-react";
 
 export default function Home() {
@@ -27,27 +29,27 @@ export default function Home() {
           </div>
 
           <nav className="space-y-1">
-            <a
-              href="#"
-              className="flex items-center gap-3 px-3 py-2 rounded-lg bg-emerald-500/10 text-emerald-400 font-medium"
+            <Link
+              href="/"
+              className="flex items-center gap-3 px-3 py-2 rounded-lg bg-slate-800/50 text-slate-200 font-medium hover:text-emerald-400 transition"
             >
               <Activity size={18} />
               <span>Panel de Control</span>
-            </a>
-            <a
-              href="#"
-              className="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-400 hover:text-slate-100 hover:bg-slate-800/50 transition"
+            </Link>
+            <Link
+              href="/invest"
+              className="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-400 hover:text-emerald-400 hover:bg-emerald-500/10 transition font-medium"
             >
-              <Wallet size={18} />
-              <span>Cartera y Fondos</span>
-            </a>
-            <a
-              href="#"
-              className="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-400 hover:text-slate-100 hover:bg-slate-800/50 transition"
+              <Coins size={18} />
+              <span>Módulo de Inversión</span>
+            </Link>
+            <Link
+              href="/login"
+              className="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-400 hover:text-emerald-400 hover:bg-emerald-500/10 transition font-medium"
             >
               <Settings size={18} />
               <span>Configuración</span>
-            </a>
+            </Link>
           </nav>
         </div>
 
@@ -73,14 +75,20 @@ export default function Home() {
             <p className="text-xs text-slate-400">Actualizado hace unos segundos</p>
           </div>
           <div className="flex items-center gap-3">
-            <button className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold px-4 py-2 rounded-lg shadow-lg shadow-emerald-500/20 transition">
+            <Link
+              href="/invest"
+              className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold px-4 py-2 rounded-lg shadow-lg shadow-emerald-500/20 transition active:scale-95"
+            >
               <Play size={16} fill="currentColor" />
               <span>Iniciar Bot</span>
-            </button>
-            <button className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 font-bold px-4 py-2 rounded-lg transition border border-slate-700">
+            </Link>
+            <Link
+              href="/invest"
+              className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 font-bold px-4 py-2 rounded-lg transition border border-slate-700 active:scale-95 text-slate-200"
+            >
               <Square size={16} fill="currentColor" />
               <span>Detener</span>
-            </button>
+            </Link>
           </div>
         </header>
 
