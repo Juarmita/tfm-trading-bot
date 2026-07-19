@@ -35,6 +35,15 @@ export default function InvestmentFlowDrawer({ isOpen, onClose }: InvestmentFlow
   const [amount, setAmount] = useState<string>("500");
   const [strategyType, setStrategyType] = useState<"long_term" | "short_term">("long_term");
   const [symbol, setSymbol] = useState<string>("AAPL");
+  const [marketRegion, setMarketRegion] = useState<string>("US");
+
+  const marketSuffixes: Record<string, string> = {
+    US: "",
+    ES: ".MC",
+    UK: ".L",
+    DE: ".DE",
+    FR: ".PA",
+  };
 
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -61,7 +70,12 @@ export default function InvestmentFlowDrawer({ isOpen, onClose }: InvestmentFlow
   const handleRunAnalysis = (e: React.FormEvent) => {
     e.preventDefault();
     const parsedAmount = parseFloat(amount) || 0;
-    executeAnalysis(parsedAmount, strategyType, symbol);
+    let finalSymbol = symbol.trim().toUpperCase();
+    const suffix = marketSuffixes[marketRegion];
+    if (suffix && !finalSymbol.includes(".")) {
+      finalSymbol = `${finalSymbol}${suffix}`;
+    }
+    executeAnalysis(parsedAmount, strategyType, finalSymbol);
   };
 
   return (
@@ -118,21 +132,45 @@ export default function InvestmentFlowDrawer({ isOpen, onClose }: InvestmentFlow
 
           {state === "idle" && (
             <form onSubmit={handleRunAnalysis} className="space-y-6">
-              {/* Activo Bursátil */}
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-slate-300 uppercase tracking-wider block">
-                  Activo a analizar (Symbol / Ticker)
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={symbol}
-                  onChange={(e) => setSymbol(e.target.value.toUpperCase())}
-                  placeholder="Ej: AAPL, BTC-USD, MSFT"
-                  className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-xl focus:outline-none focus:border-emerald-500 transition text-slate-100 placeholder-slate-600 font-mono"
-                />
-                <p className="text-[10px] text-slate-500 mt-1">
-                  Nota: El activo debe tener suficiente historial en Yahoo Finance (mínimo 200 días de cotización) para calcular los indicadores técnicos de la IA.
+              {/* Activo Bursátil y Selección de Mercado */}
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-slate-300 uppercase tracking-wider block">
+                      Activo (Ticker)
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={symbol}
+                      onChange={(e) => setSymbol(e.target.value.toUpperCase())}
+                      placeholder="Ej: AAPL, SAN, ABF"
+                      className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-xl focus:outline-none focus:border-emerald-500 transition text-slate-100 placeholder-slate-600 font-mono text-sm"
+                    />
+                  </div>
+
+                  <div className="space-y-2 relative">
+                    <label className="text-xs font-bold text-slate-300 uppercase tracking-wider block">
+                      Mercado / Región
+                    </label>
+                    <select
+                      value={marketRegion}
+                      onChange={(e) => setMarketRegion(e.target.value)}
+                      className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-xl focus:outline-none focus:border-emerald-500 transition text-slate-100 text-sm cursor-pointer appearance-none"
+                    >
+                      <option value="US">EE.UU. (NYSE, NASDAQ)</option>
+                      <option value="ES">España (BME - .MC)</option>
+                      <option value="UK">Reino Unido (LSE - .L)</option>
+                      <option value="DE">Alemania (XETRA - .DE)</option>
+                      <option value="FR">Francia (Euronext - .PA)</option>
+                    </select>
+                    <div className="pointer-events-none absolute right-4 top-[38px] flex items-center text-slate-400">
+                      <ChevronRight size={16} className="rotate-90" />
+                    </div>
+                  </div>
+                </div>
+                <p className="text-[10px] text-slate-500">
+                  Nota: Si seleccionas un mercado europeo, el sistema añadirá automáticamente el sufijo necesario (ej: ABF se enviará como ABF.L para Londres).
                 </p>
               </div>
 
