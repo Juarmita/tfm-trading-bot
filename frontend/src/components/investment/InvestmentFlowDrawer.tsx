@@ -131,6 +131,9 @@ export default function InvestmentFlowDrawer({ isOpen, onClose }: InvestmentFlow
                   placeholder="Ej: AAPL, BTC-USD, MSFT"
                   className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-xl focus:outline-none focus:border-emerald-500 transition text-slate-100 placeholder-slate-600 font-mono"
                 />
+                <p className="text-[10px] text-slate-500 mt-1">
+                  Nota: El activo debe tener suficiente historial en Yahoo Finance (mínimo 200 días de cotización) para calcular los indicadores técnicos de la IA.
+                </p>
               </div>
 
               {/* Monto a invertir */}
