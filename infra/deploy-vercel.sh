@@ -26,9 +26,9 @@ vercel link --yes
 echo "📝 2. Cargando e inyectando variables de entorno desde .env.local..."
 
 ENV_FILE="../frontend/.env.local"
-SUPABASE_URL="https://tu-proyecto.supabase.co"
-SUPABASE_KEY="tu-anon-key"
-FASTAPI_URL="https://tu-backend-fastapi.render.com"
+SUPABASE_URL="https://gayixfotlfpxslcsgfqh.supabase.co"
+SUPABASE_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdheWl4Zm90bGZweHNsY3NnZnFoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQzMDAyMDEsImV4cCI6MjA5OTg3NjIwMX0.A65PRn76MT3TuzRtSwyrDHc9H9foVNaurWOqO_vZCOM"
+FASTAPI_URL="https://tfm-trading-bot.onrender.com"
 
 if [ -f "$ENV_FILE" ]; then
     echo "📖 Cargando variables de configuración desde $ENV_FILE..."

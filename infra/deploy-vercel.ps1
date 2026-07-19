@@ -24,9 +24,9 @@ Write-Host "🔗 1. Vinculando proyecto con Vercel..." -ForegroundColor Cyan
 Write-Host "📝 2. Cargando e inyectando variables de entorno desde .env.local..." -ForegroundColor Cyan
 
 $EnvFile = "$ScriptPath\..\frontend\.env.local"
-$SupabaseUrl = "https://tu-proyecto.supabase.co"
-$SupabaseKey = "tu-anon-key"
-$FastApiUrl = "https://tu-backend-fastapi.render.com"
+$SupabaseUrl = "https://gayixfotlfpxslcsgfqh.supabase.co"
+$SupabaseKey = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdheWl4Zm90bGZweHNsY3NnZnFoIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQzMDAyMDEsImV4cCI6MjA5OTg3NjIwMX0.A65PRn76MT3TuzRtSwyrDHc9H9foVNaurWOqO_vZCOM"
+$FastApiUrl = "https://tfm-trading-bot.onrender.com"
 
 if (Test-Path $EnvFile) {
     Write-Host "📖 Cargando variables de configuración desde $EnvFile..." -ForegroundColor Gray
