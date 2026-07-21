@@ -66,9 +66,9 @@ export function useSession() {
   // Función para actualizar el saldo de la billetera (edición manual)
   const updateWalletBalance = async (newBalance: number): Promise<boolean> => {
     if (!user) return false;
-    const { error } = await supabase
-      .from("wallets")
-      .update({ balance: newBalance } as any)
+    const { error } = await (supabase
+      .from("wallets") as any)
+      .update({ balance: newBalance })
       .eq("user_id", user.id);
 
     if (error) {
