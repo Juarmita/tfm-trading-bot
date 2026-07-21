@@ -1,25 +1,29 @@
-import os
 import logging
-from uuid import UUID, uuid4
+import os
 from decimal import Decimal
-from typing import Literal, List
+from typing import Any, Dict, List, Literal, Optional
+from uuid import UUID
+
 import httpx
 import yfinance as yf
-from fastapi import APIRouter, HTTPException, Depends
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from jose import jwt, JWTError
+from fastapi import APIRouter, Depends, HTTPException
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from jose import JWTError, jwt
 from pydantic import BaseModel, Field
-from app.services.ai_engine import AIEngineService, AIDecisionOutput
+
+from app.core.broker_adapter import IBrokerAdapter
 from app.core.dependencies import get_broker
-from app.services.order_executor import OrderExecutorService
+from app.services.ai_engine import AIDecisionOutput, AIEngineService
 from app.services.market_data import MarketDataService, NewsItem
+from app.services.order_executor import OrderExecutorService
 
 router = APIRouter()
 logger = logging.getLogger("trading_router")
 
 security = HTTPBearer(auto_error=False)
 
-def get_current_user_id(credentials: HTTPAuthorizationCredentials = Depends(security)) -> str:
+
+def get_current_user_id(credentials: HTTPAuthorizationCredentials = Depends(security)) -> Optional[str]:
     """
     Verifica el token JWT provisto en las cabeceras HTTP (Supabase Auth).
     Si SUPABASE_JWT_SECRET está configurada, valida la firma criptográfica y la audiencia.
@@ -40,8 +44,10 @@ def get_current_user_id(credentials: HTTPAuthorizationCredentials = Depends(secu
             payload = jwt.get_unverified_claims(token)
         else:
             # Producción: verificación estricta de firma y audiencia (authenticated)
-            payload = jwt.decode(token, jwt_secret, algorithms=["HS256", "RS256", "HS384", "HS512"], audience="authenticated")
-        
+            payload = jwt.decode(
+                token, jwt_secret, algorithms=["HS256", "RS256", "HS384", "HS512"], audience="authenticated"
+            )
+
         user_id = payload.get("sub")
         if not user_id:
             raise HTTPException(status_code=401, detail="El token no contiene el claim de identidad del usuario (sub).")
@@ -60,9 +66,11 @@ def get_current_user_id(credentials: HTTPAuthorizationCredentials = Depends(secu
                 return None
         raise HTTPException(status_code=401, detail=f"Token de autenticación inválido: {str(e)}")
 
+
 # -------------------------------------------------------------------------
 # INPUT REQUEST DTO
 # -------------------------------------------------------------------------
+
 
 class AnalyzeRequest(BaseModel):
     user_id: UUID = Field(..., description="Identificador único del usuario")
@@ -71,20 +79,22 @@ class AnalyzeRequest(BaseModel):
     available_capital: Decimal = Field(..., description="Capital disponible asignable para operar", gt=0.0)
     max_iterations: int = Field(3, description="Número máximo de reintentos o iteraciones del motor", ge=1, le=10)
 
+
 # -------------------------------------------------------------------------
 # DATABASE PERSISTENCE HELPERS (Supabase REST API / PostgREST)
 # -------------------------------------------------------------------------
+
 
 async def save_session_to_supabase(
     session_id: UUID,
     user_id: UUID,
     strategy_type: str,
     available_capital: float,
-    input_snapshot: dict,
+    input_snapshot: Dict[str, Any],
     ai_reasoning: str,
-    execution_plan: list,
-    status: str
-):
+    execution_plan: List[Dict[str, Any]],
+    status: str,
+) -> None:
     supabase_url = os.getenv("NEXT_PUBLIC_SUPABASE_URL")
     supabase_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
     if not supabase_url or not supabase_key:
@@ -95,7 +105,7 @@ async def save_session_to_supabase(
         "apikey": supabase_key,
         "Authorization": f"Bearer {supabase_key}",
         "Content-Type": "application/json",
-        "Prefer": "return=minimal"
+        "Prefer": "return=minimal",
     }
 
     payload = {
@@ -106,20 +116,17 @@ async def save_session_to_supabase(
         "input_snapshot": input_snapshot,
         "ai_reasoning": ai_reasoning,
         "execution_plan": execution_plan,
-        "status": status
+        "status": status,
     }
 
     async with httpx.AsyncClient() as client:
         try:
-            res = await client.post(
-                f"{supabase_url}/rest/v1/ai_trading_sessions",
-                json=payload,
-                headers=headers
-            )
+            res = await client.post(f"{supabase_url}/rest/v1/ai_trading_sessions", json=payload, headers=headers)
             res.raise_for_status()
             logger.info(f"Sesión {session_id} guardada con éxito en Supabase.")
         except Exception as e:
             logger.error(f"Error al guardar sesión {session_id} en Supabase: {e}")
+
 
 async def save_trade_to_supabase(
     trade_id: UUID,
@@ -129,8 +136,8 @@ async def save_trade_to_supabase(
     quantity: float,
     price: float,
     amount: float,
-    reason: str
-):
+    reason: str,
+) -> None:
     supabase_url = os.getenv("NEXT_PUBLIC_SUPABASE_URL")
     supabase_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
     if not supabase_url or not supabase_key:
@@ -140,7 +147,7 @@ async def save_trade_to_supabase(
         "apikey": supabase_key,
         "Authorization": f"Bearer {supabase_key}",
         "Content-Type": "application/json",
-        "Prefer": "return=minimal"
+        "Prefer": "return=minimal",
     }
 
     payload = {
@@ -151,31 +158,29 @@ async def save_trade_to_supabase(
         "quantity": quantity,
         "price_executed": price,
         "amount_usd": amount,
-        "reason_snapshot": reason
+        "reason_snapshot": reason,
     }
 
     async with httpx.AsyncClient() as client:
         try:
-            res = await client.post(
-                f"{supabase_url}/rest/v1/trades",
-                json=payload,
-                headers=headers
-            )
+            res = await client.post(f"{supabase_url}/rest/v1/trades", json=payload, headers=headers)
             res.raise_for_status()
             logger.info(f"Operación {trade_id} guardada con éxito en Supabase.")
         except Exception as e:
             logger.error(f"Error al guardar transacción {trade_id} en Supabase: {e}")
 
+
 # -------------------------------------------------------------------------
 # ENDPOINTS
 # -------------------------------------------------------------------------
 
+
 @router.post("/analyze", response_model=AIDecisionOutput)
 async def analyze_trading(
     request: AnalyzeRequest,
-    current_user_id: str = Depends(get_current_user_id),
-    broker=Depends(get_broker)
-):
+    current_user_id: Optional[str] = Depends(get_current_user_id),
+    broker: IBrokerAdapter = Depends(get_broker),
+) -> AIDecisionOutput:
     """
     Ejecuta el motor de decisión cuantitativo basado en IA para el activo especificado.
     Realiza las validaciones de riesgo, guarda la sesión, ejecuta las órdenes mediante el broker
@@ -183,8 +188,7 @@ async def analyze_trading(
     """
     if current_user_id and str(request.user_id) != current_user_id:
         raise HTTPException(
-            status_code=403,
-            detail="No tienes autorización para operar bajo la identidad de este usuario."
+            status_code=403, detail="No tienes autorización para operar bajo la identidad de este usuario."
         )
     try:
         # 1. Ejecutar el análisis y toma de decisiones del motor de IA
@@ -193,23 +197,21 @@ async def analyze_trading(
             symbol=request.symbol,
             strategy_type=request.strategy_type,
             available_capital=request.available_capital,
-            max_iterations=request.max_iterations
+            max_iterations=request.max_iterations,
         )
 
         # 2. Ejecutar el plan mediante la capa de abstracción del Broker desacoplado
         execution_reports = await OrderExecutorService.process_ai_execution_plan(
-            user_id=request.user_id,
-            decision_output=decision_output,
-            broker=broker
+            user_id=request.user_id, decision_output=decision_output, broker=broker
         )
 
         # 3. Guardar sesión de análisis en Supabase en segundo plano
         input_snapshot = {
             "symbol": request.symbol.upper(),
             "available_capital": float(request.available_capital),
-            "strategy": request.strategy_type
+            "strategy": request.strategy_type,
         }
-        
+
         execution_plan = [order.model_dump() for order in decision_output.orders]
 
         # Guardado en base de datos
@@ -222,7 +224,7 @@ async def analyze_trading(
             input_snapshot=input_snapshot,
             ai_reasoning=decision_output.reasoning_markdown,
             execution_plan=execution_plan,
-            status=status
+            status=status,
         )
 
         # 4. Guardar las transacciones liquidadas (trades) reportadas por el broker
@@ -236,7 +238,7 @@ async def analyze_trading(
                     quantity=report.quantity_filled,
                     price=report.price_filled,
                     amount=report.quantity_filled * report.price_filled,
-                    reason=f"Ejecutada con éxito por el broker con slippage de ${report.slippage_usd:.2f} USD."
+                    reason=f"Ejecutada con éxito por el broker con slippage de ${report.slippage_usd:.2f} USD.",
                 )
 
         return decision_output
@@ -246,12 +248,15 @@ async def analyze_trading(
         raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:
         logger.error(f"Error crítico inesperado en motor de IA: {e}")
-        raise HTTPException(status_code=500, detail="Ocurrió un error inesperado en el servidor durante el procesamiento.")
+        raise HTTPException(
+            status_code=500, detail="Ocurrió un error inesperado en el servidor durante el procesamiento."
+        )
 
 
 # -------------------------------------------------------------------------
 # PORTFOLIO SCHEMAS
 # -------------------------------------------------------------------------
+
 
 class PositionModel(BaseModel):
     symbol: str = Field(..., description="Ticker del activo")
@@ -263,6 +268,7 @@ class PositionModel(BaseModel):
     profit_loss: float = Field(..., description="Ganancia/Pérdida absoluta en USD")
     profit_loss_pct: float = Field(..., description="Ganancia/Pérdida porcentual")
 
+
 class PortfolioSummary(BaseModel):
     cash: float = Field(..., description="Efectivo líquido disponible en billetera")
     total_positions_value: float = Field(..., description="Valor total de las posiciones abiertas")
@@ -271,10 +277,12 @@ class PortfolioSummary(BaseModel):
     total_profit_loss: float = Field(..., description="Ganancia/Pérdida absoluta acumulada")
     total_profit_loss_pct: float = Field(..., description="Rentabilidad total del portafolio")
 
+
 class PortfolioFact(BaseModel):
     type: str = Field(..., description="Tipo de métrica (concentration, best_performer, etc.)")
     title: str = Field(..., description="Título de la métrica")
     description: str = Field(..., description="Descripción detallada de la métrica")
+
 
 class PortfolioResponse(BaseModel):
     summary: PortfolioSummary
@@ -285,16 +293,14 @@ class PortfolioResponse(BaseModel):
 
 @router.get("/portfolio/{user_id}", response_model=PortfolioResponse)
 async def get_portfolio(
-    user_id: UUID,
-    current_user_id: str = Depends(get_current_user_id)
-):
+    user_id: UUID, current_user_id: Optional[str] = Depends(get_current_user_id)
+) -> PortfolioResponse:
     """
     Obtiene el portafolio del usuario calculando dinámicamente posiciones, ROI actual y noticias relacionadas.
     """
     if current_user_id and str(user_id) != current_user_id:
         raise HTTPException(
-            status_code=403,
-            detail="No tienes autorización para acceder al portafolio de este usuario."
+            status_code=403, detail="No tienes autorización para acceder al portafolio de este usuario."
         )
 
     supabase_url = os.getenv("NEXT_PUBLIC_SUPABASE_URL")
@@ -312,7 +318,7 @@ async def get_portfolio(
                 market_value=1800.0,
                 cost_basis=1750.0,
                 profit_loss=50.0,
-                profit_loss_pct=2.86
+                profit_loss_pct=2.86,
             ),
             PositionModel(
                 symbol="TSLA",
@@ -322,8 +328,8 @@ async def get_portfolio(
                 market_value=1100.0,
                 cost_basis=1050.0,
                 profit_loss=50.0,
-                profit_loss_pct=4.76
-            )
+                profit_loss_pct=4.76,
+            ),
         ]
         mock_summary = PortfolioSummary(
             cash=10000.0,
@@ -331,19 +337,19 @@ async def get_portfolio(
             total_portfolio_value=12900.0,
             total_cost_basis=2800.0,
             total_profit_loss=100.0,
-            total_profit_loss_pct=3.57
+            total_profit_loss_pct=3.57,
         )
         mock_facts = [
             PortfolioFact(
                 type="best_performer",
                 title="Mejor Rendimiento",
-                description="TSLA es tu activo más rentable con un retorno del +4.76%."
+                description="TSLA es tu activo más rentable con un retorno del +4.76%.",
             ),
             PortfolioFact(
                 type="concentration",
                 title="Concentración de Cartera",
-                description="AAPL representa el 62.07% del valor de tus inversiones."
-            )
+                description="AAPL representa el 62.07% del valor de tus inversiones.",
+            ),
         ]
         # Intentar obtener noticias mockeadas para AAPL
         mock_news = []
@@ -352,24 +358,15 @@ async def get_portfolio(
         except Exception:
             pass
 
-        return PortfolioResponse(
-            summary=mock_summary,
-            positions=mock_positions,
-            facts=mock_facts,
-            news=mock_news
-        )
+        return PortfolioResponse(summary=mock_summary, positions=mock_positions, facts=mock_facts, news=mock_news)
 
-    headers = {
-        "apikey": supabase_key,
-        "Authorization": f"Bearer {supabase_key}"
-    }
+    headers = {"apikey": supabase_key, "Authorization": f"Bearer {supabase_key}"}
 
     async with httpx.AsyncClient() as client:
         try:
             # 1. Obtener balance de la billetera
             wallet_res = await client.get(
-                f"{supabase_url}/rest/v1/wallets?user_id=eq.{user_id}&select=balance",
-                headers=headers
+                f"{supabase_url}/rest/v1/wallets?user_id=eq.{user_id}&select=balance", headers=headers
             )
             wallet_res.raise_for_status()
             wallets = wallet_res.json()
@@ -388,16 +385,10 @@ async def get_portfolio(
                 sym = t["symbol"].upper()
                 act = t["action"]
                 qty = float(t["quantity"])
-                price = float(t["price_executed"])
                 amt = float(t["amount_usd"])
 
                 if sym not in symbols_data:
-                    symbols_data[sym] = {
-                        "qty_bought": 0.0,
-                        "cost_bought": 0.0,
-                        "qty_sold": 0.0,
-                        "revenue_sold": 0.0
-                    }
+                    symbols_data[sym] = {"qty_bought": 0.0, "cost_bought": 0.0, "qty_sold": 0.0, "revenue_sold": 0.0}
 
                 if act == "BUY":
                     symbols_data[sym]["qty_bought"] += qty
@@ -408,14 +399,14 @@ async def get_portfolio(
 
             positions = []
             news_list = []
-            
+
             for sym, data in symbols_data.items():
                 remaining_qty = data["qty_bought"] - data["qty_sold"]
                 # Solo procesamos si tiene acciones activas en portafolio
                 if remaining_qty > 0.0001:
                     # Precio promedio de compra
                     avg_price = data["cost_bought"] / data["qty_bought"] if data["qty_bought"] > 0 else 0.0
-                    
+
                     # Obtener cotización actual en vivo de Yahoo Finance
                     current_price = avg_price
                     try:
@@ -429,7 +420,7 @@ async def get_portfolio(
                                 currency = "EUR"
                             elif sym.endswith(".L"):
                                 currency = "GBp"
-                        
+
                         usd_rate = await MarketDataService.get_usd_exchange_rate(currency)
                         current_price = quote.price * usd_rate
                     except Exception as e:
@@ -448,7 +439,7 @@ async def get_portfolio(
                         market_value=round(market_value, 2),
                         cost_basis=round(cost_basis, 2),
                         profit_loss=round(profit_loss, 2),
-                        profit_loss_pct=round(profit_loss_pct, 2)
+                        profit_loss_pct=round(profit_loss_pct, 2),
                     )
                     positions.append(pos_model)
 
@@ -472,7 +463,7 @@ async def get_portfolio(
                 total_portfolio_value=round(total_portfolio_value, 2),
                 total_cost_basis=round(total_cost_basis, 2),
                 total_profit_loss=round(total_profit_loss, 2),
-                total_profit_loss_pct=round(total_profit_loss_pct, 2)
+                total_profit_loss_pct=round(total_profit_loss_pct, 2),
             )
 
             # 5. Generar insights y hechos dinámicos del portafolio (facts)
@@ -484,7 +475,7 @@ async def get_portfolio(
                     PortfolioFact(
                         type="best_performer",
                         title="Mejor Rendimiento",
-                        description=f"{best_pos.symbol} es tu activo con mayor retorno hasta ahora: +{best_pos.profit_loss_pct:.2f}%."
+                        description=f"{best_pos.symbol} es tu activo con mayor retorno hasta ahora: +{best_pos.profit_loss_pct:.2f}%.",
                     )
                 )
 
@@ -495,19 +486,23 @@ async def get_portfolio(
                         PortfolioFact(
                             type="worst_performer",
                             title="Desempeño Negativo",
-                            description=f"{worst_pos.symbol} registra la mayor pérdida latente en tu cartera: {worst_pos.profit_loss_pct:.2f}%."
+                            description=f"{worst_pos.symbol} registra la mayor pérdida latente en tu cartera: {worst_pos.profit_loss_pct:.2f}%.",
                         )
                     )
 
                 # Concentración
                 most_concentrated = max(positions, key=lambda p: p.market_value)
-                concentration_pct = (most_concentrated.market_value / total_portfolio_value) * 100.0 if total_portfolio_value > 0 else 0.0
+                concentration_pct = (
+                    (most_concentrated.market_value / total_portfolio_value) * 100.0
+                    if total_portfolio_value > 0
+                    else 0.0
+                )
                 if concentration_pct > 30.0:
                     facts.append(
                         PortfolioFact(
                             type="concentration",
                             title="Alerta de Concentración",
-                            description=f"{most_concentrated.symbol} representa el {concentration_pct:.2f}% de tu portafolio total. Diversifica para mitigar riesgos."
+                            description=f"{most_concentrated.symbol} representa el {concentration_pct:.2f}% de tu portafolio total. Diversifica para mitigar riesgos.",
                         )
                     )
                 else:
@@ -515,7 +510,7 @@ async def get_portfolio(
                         PortfolioFact(
                             type="concentration",
                             title="Diversificación Saludable",
-                            description=f"Tu activo más grande es {most_concentrated.symbol} y solo representa el {concentration_pct:.2f}% de tu cartera."
+                            description=f"Tu activo más grande es {most_concentrated.symbol} y solo representa el {concentration_pct:.2f}% de tu cartera.",
                         )
                     )
             else:
@@ -523,7 +518,7 @@ async def get_portfolio(
                     PortfolioFact(
                         type="diversification",
                         title="Cartera Vacía",
-                        description="Aún no tienes posiciones abiertas. Ejecuta análisis cuánticos para que el bot empiece a operar."
+                        description="Aún no tienes posiciones abiertas. Ejecuta análisis cuánticos para que el bot empiece a operar.",
                     )
                 )
 
@@ -531,9 +526,11 @@ async def get_portfolio(
                 summary=summary,
                 positions=positions,
                 facts=facts,
-                news=news_list[:6] # Capped to latest 6 news items total
+                news=news_list[:6],  # Capped to latest 6 news items total
             )
 
         except Exception as e:
             logger.error(f"Error al calcular portafolio para {user_id}: {str(e)}")
-            raise HTTPException(status_code=500, detail=f"Error interno del servidor al obtener el portafolio: {str(e)}")
+            raise HTTPException(
+                status_code=500, detail=f"Error interno del servidor al obtener el portafolio: {str(e)}"
+            )

@@ -1,8 +1,11 @@
+from typing import Dict
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.core.config import settings
+
 from app.api.v1.market import router as market_router
 from app.api.v1.trading import router as trading_router
+from app.core.config import settings
 
 app = FastAPI(
     title=settings.PROJECT_NAME,
@@ -23,12 +26,12 @@ app.add_middleware(
 app.include_router(market_router, prefix="/api/v1/market", tags=["Market Data"])
 app.include_router(trading_router, prefix="/api/v1/trading", tags=["AI Trading Engine"])
 
+
 @app.get("/")
-def read_root():
+def read_root() -> Dict[str, str]:
     return {"message": f"Welcome to the {settings.PROJECT_NAME} API!"}
 
+
 @app.get("/health")
-def health_check():
+def health_check() -> Dict[str, str]:
     return {"status": "ok", "service": settings.PROJECT_NAME}
-
-

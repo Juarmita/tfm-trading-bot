@@ -1,14 +1,11 @@
-import pytest
-from unittest.mock import MagicMock, patch
-import pandas as pd
 from datetime import datetime
-from app.services.market_data import (
-    MarketDataService,
-    Quote,
-    HistoricalCandle,
-    DividendEvent,
-    NewsItem
-)
+from unittest.mock import MagicMock, patch
+
+import pandas as pd
+import pytest
+
+from app.services.market_data import DividendEvent, HistoricalCandle, MarketDataService, NewsItem, Quote
+
 
 @pytest.mark.asyncio
 @patch("yfinance.Ticker")
@@ -22,18 +19,15 @@ async def test_get_quote_success(mock_ticker):
             "Close": [172.0, 182.0],
             "Volume": [1000, 2000],
         },
-        index=[
-            pd.Timestamp("2026-07-16 09:30:00"),
-            pd.Timestamp("2026-07-17 09:30:00")
-        ]
+        index=[pd.Timestamp("2026-07-16 09:30:00"), pd.Timestamp("2026-07-17 09:30:00")],
     )
-    
+
     mock_instance = MagicMock()
     mock_instance.history.return_value = mock_history
     mock_ticker.return_value = mock_instance
 
     quote = await MarketDataService.get_quote("AAPL")
-    
+
     assert isinstance(quote, Quote)
     assert quote.symbol == "AAPL"
     assert quote.price == 182.0
@@ -41,6 +35,7 @@ async def test_get_quote_success(mock_ticker):
     assert quote.change_pct == (10.0 / 172.0) * 100.0
     assert quote.volume == 2000
     assert isinstance(quote.timestamp, datetime)
+
 
 @pytest.mark.asyncio
 @patch("yfinance.Ticker")
@@ -53,6 +48,7 @@ async def test_get_quote_empty_data(mock_ticker):
     with pytest.raises(ValueError, match="Símbolo desconocido o sin cotizaciones recientes"):
         await MarketDataService.get_quote("INVALID")
 
+
 @pytest.mark.asyncio
 @patch("yfinance.Ticker")
 async def test_get_historical_success(mock_ticker):
@@ -64,23 +60,21 @@ async def test_get_historical_success(mock_ticker):
             "Close": [172.0, 175.0],
             "Volume": [1000, 1500],
         },
-        index=[
-            pd.Timestamp("2026-07-16"),
-            pd.Timestamp("2026-07-17")
-        ]
+        index=[pd.Timestamp("2026-07-16"), pd.Timestamp("2026-07-17")],
     )
-    
+
     mock_instance = MagicMock()
     mock_instance.history.return_value = mock_history
     mock_ticker.return_value = mock_instance
 
     candles = await MarketDataService.get_historical("AAPL", period="2d", interval="1d")
-    
+
     assert len(candles) == 2
     assert isinstance(candles[0], HistoricalCandle)
     assert candles[0].close == 172.0
     assert candles[1].close == 175.0
     assert candles[1].volume == 1500
+
 
 @pytest.mark.asyncio
 @patch("yfinance.Ticker")
@@ -89,20 +83,21 @@ async def test_get_dividends_success(mock_ticker):
         [0.24, 0.25],
         index=[
             pd.Timestamp(datetime.now() - pd.Timedelta(days=10)),
-            pd.Timestamp(datetime.now() - pd.Timedelta(days=40))
-        ]
+            pd.Timestamp(datetime.now() - pd.Timedelta(days=40)),
+        ],
     )
-    
+
     mock_instance = MagicMock()
     mock_instance.dividends = mock_dividends
     mock_ticker.return_value = mock_instance
 
     # Filtrar dividendos de los últimos 30 días (solo debe quedar 1 de los 2)
     dividends = await MarketDataService.get_dividends("AAPL", days_range=30)
-    
+
     assert len(dividends) == 1
     assert isinstance(dividends[0], DividendEvent)
     assert dividends[0].value == 0.24
+
 
 @pytest.mark.asyncio
 @patch("yfinance.Ticker")
@@ -112,21 +107,22 @@ async def test_get_news_success(mock_ticker):
             "title": "AAPL Stock Rallies",
             "publisher": "Reuters",
             "link": "https://reuters.com/aapl",
-            "providerPublishTime": 1784310000
+            "providerPublishTime": 1784310000,
         }
     ]
-    
+
     mock_instance = MagicMock()
     mock_instance.news = mock_news
     mock_ticker.return_value = mock_instance
 
     news = await MarketDataService.get_news("AAPL", limit=1)
-    
+
     assert len(news) == 1
     assert isinstance(news[0], NewsItem)
     assert news[0].title == "AAPL Stock Rallies"
     assert news[0].publisher == "Reuters"
     assert news[0].link == "https://reuters.com/aapl"
+
 
 @pytest.mark.asyncio
 @patch("yfinance.Ticker")
@@ -140,10 +136,7 @@ async def test_get_quote_cache_hit_consecutive(mock_ticker):
             "Close": [172.0, 182.0],
             "Volume": [1000, 2000],
         },
-        index=[
-            pd.Timestamp("2026-07-16 09:30:00"),
-            pd.Timestamp("2026-07-17 09:30:00")
-        ]
+        index=[pd.Timestamp("2026-07-16 09:30:00"), pd.Timestamp("2026-07-17 09:30:00")],
     )
     mock_instance = MagicMock()
     mock_instance.history.return_value = mock_history
@@ -160,4 +153,3 @@ async def test_get_quote_cache_hit_consecutive(mock_ticker):
     # Tercera llamada (hit, no debe fallar con fromisoformat: argument must be str)
     quote3 = await MarketDataService.get_quote("AAPL_TEMP")
     assert quote3.price == 182.0
-

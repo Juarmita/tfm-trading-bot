@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { useInvestmentSession } from "./useInvestmentSession";
+import { ExecutionOrder } from "@/types";
 import {
   TrendingUp,
   Activity,
@@ -298,7 +299,7 @@ export default function InvestmentFlowDrawer({ isOpen, onClose }: InvestmentFlow
                   Órdenes del Plan de Ejecución
                 </h4>
                 {decisionOutput.orders.length > 0 ? (
-                  decisionOutput.orders.map((order: any, idx: number) => (
+                  decisionOutput.orders.map((order: ExecutionOrder, idx: number) => (
                     <div
                       key={idx}
                       className="p-4 bg-slate-950/40 border border-slate-800/60 rounded-xl flex items-center justify-between"

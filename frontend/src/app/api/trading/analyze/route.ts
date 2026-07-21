@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { AnalyzeRequest } from "@/types";
 
 export async function POST(request: NextRequest) {
   const fastapiBaseUrl = process.env.FASTAPI_BASE_URL || "http://localhost:8000";
@@ -12,10 +13,10 @@ export async function POST(request: NextRequest) {
   }
   headers.set("Content-Type", "application/json");
 
-  let body: any = null;
+  let body: AnalyzeRequest | null = null;
 
   try {
-    body = await request.json();
+    body = (await request.json()) as AnalyzeRequest;
 
     const res = await fetch(targetUrl, {
       method: "POST",
@@ -23,7 +24,7 @@ export async function POST(request: NextRequest) {
       body: JSON.stringify(body),
     });
 
-    const data = await res.json();
+    const data = (await res.json()) as unknown;
 
     return NextResponse.json(data, {
       status: res.status,
@@ -33,7 +34,7 @@ export async function POST(request: NextRequest) {
         "Access-Control-Allow-Headers": "Content-Type, Authorization",
       },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error en proxy POST /api/trading/analyze:", error);
     
     return NextResponse.json(

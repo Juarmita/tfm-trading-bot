@@ -1,17 +1,17 @@
 import logging
 from typing import List
 from uuid import UUID
-from app.core.broker_adapter import IBrokerAdapter, OrderRequest, ExecutionReport
+
+from app.core.broker_adapter import ExecutionReport, IBrokerAdapter, OrderRequest
 from app.services.ai_engine import AIDecisionOutput
 
 logger = logging.getLogger("order_executor")
 
+
 class OrderExecutorService:
     @staticmethod
     async def process_ai_execution_plan(
-        user_id: UUID,
-        decision_output: AIDecisionOutput,
-        broker: IBrokerAdapter
+        user_id: UUID, decision_output: AIDecisionOutput, broker: IBrokerAdapter
     ) -> List[ExecutionReport]:
         """
         Hook de integración que toma el plan de ejecución arrojado por el análisis de la IA,
@@ -31,11 +31,13 @@ class OrderExecutorService:
                 symbol=order.symbol,
                 action=order.action,
                 quantity=order.quantity,
-                price_estimated=order.price_estimated
+                price_estimated=order.price_estimated,
             )
 
-            logger.info(f"Transmitiendo orden {order_request.action} {order_request.quantity} {order_request.symbol} al broker...")
-            
+            logger.info(
+                f"Transmitiendo orden {order_request.action} {order_request.quantity} {order_request.symbol} al broker..."
+            )
+
             # Ejecutar mediante la abstracción del adaptador de broker inyectado
             report = await broker.execute_order(order_request)
             reports.append(report)
@@ -45,8 +47,6 @@ class OrderExecutorService:
                     f"Orden llenada con éxito. ID: {report.order_id}, Fill Price: {report.price_filled}, Latencia: {report.execution_latency_ms:.2f}ms"
                 )
             else:
-                logger.error(
-                    f"Orden rechazada o fallida por el broker. ID: {report.order_id}, Status: {report.status}"
-                )
+                logger.error(f"Orden rechazada o fallida por el broker. ID: {report.order_id}, Status: {report.status}")
 
         return reports

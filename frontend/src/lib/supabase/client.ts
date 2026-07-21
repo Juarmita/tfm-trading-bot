@@ -10,7 +10,7 @@ export type Database = {
           email: string;
           role: "user" | "admin";
           created_at: string;
-          raw_user_meta_data: Record<string, any> | null;
+          raw_user_meta_data: Record<string, unknown> | null;
         };
         Insert: Omit<Database["public"]["Tables"]["users"]["Row"], "id" | "created_at">;
         Update: Partial<Database["public"]["Tables"]["users"]["Insert"]>;

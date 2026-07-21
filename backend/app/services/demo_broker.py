@@ -1,21 +1,25 @@
-import os
-import time
+import asyncio
 import json
 import logging
-import asyncio
-from uuid import UUID, uuid4
+import os
+import time
 from datetime import datetime, timezone
 from typing import List
+from uuid import UUID, uuid4
+
 import httpx
-from app.core.broker_adapter import IBrokerAdapter, OrderRequest, ExecutionReport, Position, AccountSnapshot
+
+from app.core.broker_adapter import ExecutionReport, IBrokerAdapter, OrderRequest, Position
 
 logger = logging.getLogger("demo_broker")
+
 
 class DemoBroker(IBrokerAdapter):
     """
     Simulador de Broker con cumplimiento de ACID. Sincroniza con Supabase DB si
     está disponible y calcula fills con desfases de latencia y slippage simulados.
     """
+
     def __init__(self, slippage_pct: float = 0.0, mock_latency_ms: float = 50.0):
         self.slippage_pct = slippage_pct
         self.mock_latency_ms = mock_latency_ms
@@ -23,21 +27,17 @@ class DemoBroker(IBrokerAdapter):
     async def get_balance(self, user_id: UUID) -> float:
         supabase_url = os.getenv("NEXT_PUBLIC_SUPABASE_URL")
         supabase_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
-        
+
         if not supabase_url or not supabase_key:
             logger.warning("Falta variables de Supabase, utilizando balance Mock de $10,000 USD.")
             return 10000.0
 
-        headers = {
-            "apikey": supabase_key,
-            "Authorization": f"Bearer {supabase_key}"
-        }
+        headers = {"apikey": supabase_key, "Authorization": f"Bearer {supabase_key}"}
 
         async with httpx.AsyncClient() as client:
             try:
                 res = await client.get(
-                    f"{supabase_url}/rest/v1/wallets?user_id=eq.{user_id}&select=balance",
-                    headers=headers
+                    f"{supabase_url}/rest/v1/wallets?user_id=eq.{user_id}&select=balance", headers=headers
                 )
                 res.raise_for_status()
                 data = res.json()
@@ -45,7 +45,7 @@ class DemoBroker(IBrokerAdapter):
                     return float(data[0]["balance"])
             except Exception as e:
                 logger.error(f"Fallo al recuperar balance de Supabase: {e}")
-        
+
         return 10000.0
 
     async def validate_capital(self, user_id: UUID, required_capital: float) -> bool:
@@ -56,7 +56,7 @@ class DemoBroker(IBrokerAdapter):
         # Simulación académica de posiciones
         return [
             Position(symbol="AAPL", quantity=10.0, average_price=175.00, market_value=1820.00),
-            Position(symbol="TSLA", quantity=5.0, average_price=210.00, market_value=1100.00)
+            Position(symbol="TSLA", quantity=5.0, average_price=210.00, market_value=1100.00),
         ]
 
     async def execute_order(self, order: OrderRequest) -> ExecutionReport:
@@ -83,7 +83,7 @@ class DemoBroker(IBrokerAdapter):
                     slippage_usd=0.0,
                     execution_latency_ms=latency,
                     timestamp=datetime.now(timezone.utc),
-                    status="rejected"
+                    status="rejected",
                 )
                 self.log_execution(report)
                 return report
@@ -111,13 +111,13 @@ class DemoBroker(IBrokerAdapter):
             slippage_usd=slippage_usd,
             execution_latency_ms=latency,
             timestamp=datetime.now(timezone.utc),
-            status="filled"
+            status="filled",
         )
 
         self.log_execution(report)
         return report
 
-    async def _update_supabase_balance(self, user_id: UUID, change_amount: float):
+    async def _update_supabase_balance(self, user_id: UUID, change_amount: float) -> None:
         supabase_url = os.getenv("NEXT_PUBLIC_SUPABASE_URL")
         supabase_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
         if not supabase_url or not supabase_key:
@@ -127,15 +127,12 @@ class DemoBroker(IBrokerAdapter):
             "apikey": supabase_key,
             "Authorization": f"Bearer {supabase_key}",
             "Content-Type": "application/json",
-            "Prefer": "return=minimal"
+            "Prefer": "return=minimal",
         }
 
         async with httpx.AsyncClient() as client:
             try:
-                res = await client.get(
-                    f"{supabase_url}/rest/v1/wallets?user_id=eq.{user_id}",
-                    headers=headers
-                )
+                res = await client.get(f"{supabase_url}/rest/v1/wallets?user_id=eq.{user_id}", headers=headers)
                 res.raise_for_status()
                 wallets = res.json()
                 if wallets:
@@ -146,13 +143,13 @@ class DemoBroker(IBrokerAdapter):
                     update_res = await client.patch(
                         f"{supabase_url}/rest/v1/wallets?id=eq.{wallet['id']}",
                         json={"balance": new_balance},
-                        headers=headers
+                        headers=headers,
                     )
                     update_res.raise_for_status()
             except Exception as e:
                 logger.error(f"Error al sincronizar saldo de billetera en Supabase: {e}")
 
-    def log_execution(self, report: ExecutionReport):
+    def log_execution(self, report: ExecutionReport) -> None:
         log_entry = {
             "timestamp": report.timestamp.isoformat(),
             "level": "INFO",
@@ -163,6 +160,6 @@ class DemoBroker(IBrokerAdapter):
             "fill_price": round(report.price_filled, 2),
             "slippage_usd": round(report.slippage_usd, 2),
             "latency_ms": round(report.execution_latency_ms, 2),
-            "status": report.status
+            "status": report.status,
         }
         print(json.dumps(log_entry))

@@ -1,10 +1,11 @@
-import os
-import time
+import asyncio
 import json
 import logging
-import asyncio
+import os
+import time
 from datetime import datetime, timedelta, timezone
-from typing import Dict, Any, List, Optional
+from typing import Any, Dict, List, Optional
+
 import numpy as np
 import pandas as pd
 import redis
@@ -15,7 +16,8 @@ from pydantic import BaseModel, Field
 logger = logging.getLogger("market_data_service")
 logger.setLevel(logging.INFO)
 
-def log_structured(symbol: str, cache_hit: bool, latency_ms: float, source: str, status: str = "success"):
+
+def log_structured(symbol: str, cache_hit: bool, latency_ms: float, source: str, status: str = "success") -> None:
     log_data = {
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "level": "INFO",
@@ -24,13 +26,15 @@ def log_structured(symbol: str, cache_hit: bool, latency_ms: float, source: str,
         "cache_hit": cache_hit,
         "latency_ms": round(latency_ms, 2),
         "source": source,
-        "status": status
-      }
+        "status": status,
+    }
     print(json.dumps(log_data))
+
 
 # -------------------------------------------------------------------------
 # 1. PYDANTIC SCHEMAS
 # -------------------------------------------------------------------------
+
 
 class Quote(BaseModel):
     symbol: str = Field(..., description="Ticker bursátil o par de criptomonedas")
@@ -40,6 +44,7 @@ class Quote(BaseModel):
     volume: int = Field(..., description="Volumen acumulado transaccionado")
     timestamp: datetime = Field(..., description="Marca de tiempo de la cotización")
 
+
 class HistoricalCandle(BaseModel):
     date: datetime = Field(..., description="Fecha de la vela")
     open: float = Field(..., description="Precio de apertura")
@@ -48,9 +53,11 @@ class HistoricalCandle(BaseModel):
     close: float = Field(..., description="Precio de cierre")
     volume: int = Field(..., description="Volumen negociado")
 
+
 class DividendEvent(BaseModel):
     date: datetime = Field(..., description="Fecha de pago del dividendo")
     value: float = Field(..., description="Monto distribuido por acción")
+
 
 class NewsItem(BaseModel):
     title: str = Field(..., description="Título de la noticia")
@@ -58,12 +65,14 @@ class NewsItem(BaseModel):
     link: str = Field(..., description="Enlace web completo a la noticia")
     provider_publish_time: datetime = Field(..., description="Fecha y hora de publicación")
 
+
 # -------------------------------------------------------------------------
 # 2. SISTEMA DE CACHÉ (Memoria LRU con fallback a Redis)
 # -------------------------------------------------------------------------
 
+
 class TimedMemoryCache:
-    def __init__(self):
+    def __init__(self) -> None:
         self._cache: Dict[str, tuple[float, Any]] = {}
 
     def get(self, key: str, max_age_seconds: int) -> Optional[Any]:
@@ -75,8 +84,9 @@ class TimedMemoryCache:
             return None
         return value
 
-    def set(self, key: str, value: Any):
+    def set(self, key: str, value: Any) -> None:
         self._cache[key] = (time.time(), value)
+
 
 # Inicializar caché en memoria
 memory_cache = TimedMemoryCache()
@@ -91,6 +101,7 @@ if redis_url:
     except Exception as e:
         logger.warning(f"Error al conectar con Redis ({e}). Usando caché en memoria local.")
 
+
 def get_cached_data(key: str, max_age_seconds: int) -> Optional[Any]:
     if redis_client:
         try:
@@ -101,7 +112,8 @@ def get_cached_data(key: str, max_age_seconds: int) -> Optional[Any]:
             pass
     return memory_cache.get(key, max_age_seconds)
 
-def set_cached_data(key: str, value: Any, max_age_seconds: int):
+
+def set_cached_data(key: str, value: Any, max_age_seconds: int) -> None:
     if redis_client:
         try:
             redis_client.setex(key, max_age_seconds, json.dumps(value))
@@ -110,12 +122,14 @@ def set_cached_data(key: str, value: Any, max_age_seconds: int):
             pass
     memory_cache.set(key, value)
 
+
 # -------------------------------------------------------------------------
 # 3. RATE LIMITING LOCAL (Token Bucket por Símbolo)
 # -------------------------------------------------------------------------
 
+
 class TokenBucketRateLimiter:
-    def __init__(self, rate: int = 60, per_seconds: int = 60):
+    def __init__(self, rate: int = 60, per_seconds: int = 60) -> None:
         self.rate = rate
         self.per_seconds = per_seconds
         self.buckets: Dict[str, tuple[float, float]] = {}
@@ -125,18 +139,19 @@ class TokenBucketRateLimiter:
         if symbol not in self.buckets:
             self.buckets[symbol] = (now, float(self.rate))
             return True
-        
+
         last_update, tokens = self.buckets[symbol]
         elapsed = now - last_update
         # Reponer tokens basado en el tiempo transcurrido
         new_tokens = min(float(self.rate), tokens + elapsed * (self.rate / self.per_seconds))
-        
+
         if new_tokens >= 1.0:
             self.buckets[symbol] = (now, new_tokens - 1.0)
             return True
-        
+
         self.buckets[symbol] = (now, new_tokens)
         return False
+
 
 rate_limiter = TokenBucketRateLimiter(rate=60, per_seconds=60)
 
@@ -144,9 +159,13 @@ rate_limiter = TokenBucketRateLimiter(rate=60, per_seconds=60)
 # 4. IMPLEMENTACIÓN DE BÚSQUEDA Y VALIDACIÓN DE DATOS (yfinance)
 # -------------------------------------------------------------------------
 
+
 class MarketDataService:
+    _exchange_rates_cache: Dict[str, float] = {}
+    _exchange_rates_timestamp: Dict[str, float] = {}
+
     @staticmethod
-    async def _fetch_with_backoff(func, *args, **kwargs) -> Any:
+    async def _fetch_with_backoff(func: Any, *args: Any, **kwargs: Any) -> Any:
         """Ejecuta una llamada yFinance de forma segura con retardo exponencial."""
         retries = 3
         delay = 1.0
@@ -171,7 +190,7 @@ class MarketDataService:
         cache_key = f"quote:{symbol.upper()}"
         cached = get_cached_data(cache_key, 600)
         start_time = time.time()
-        
+
         if cached:
             log_structured(symbol, True, (time.time() - start_time) * 1000, "cache")
             # Parsear fecha almacenada (copiando para evitar mutación in-place del caché)
@@ -185,13 +204,13 @@ class MarketDataService:
             ticker = yf.Ticker(symbol)
             # Descargamos los últimos 2 días para calcular el cambio
             history = await cls._fetch_with_backoff(ticker.history, period="2d")
-            
+
             if history.empty:
                 raise ValueError(f"Símbolo desconocido o sin cotizaciones recientes: {symbol}")
-            
+
             latest = history.iloc[-1]
             prev_close = history.iloc[-2]["Close"] if len(history) > 1 else latest["Open"]
-            
+
             # Limpieza y conversión a tipos nativos de python
             price = float(latest["Close"])
             prev_close_val = float(prev_close)
@@ -209,14 +228,14 @@ class MarketDataService:
                 change=change,
                 change_pct=change_pct,
                 volume=volume,
-                timestamp=timestamp
+                timestamp=timestamp,
             )
 
             # Serializar y almacenar en caché
             cache_val = quote.model_dump()
             cache_val["timestamp"] = quote.timestamp.isoformat()
             set_cached_data(cache_key, cache_val, 600)
-            
+
             log_structured(symbol, False, (time.time() - start_time) * 1000, "yfinance")
             return quote
 
@@ -245,7 +264,7 @@ class MarketDataService:
         try:
             ticker = yf.Ticker(symbol)
             history = await cls._fetch_with_backoff(ticker.history, period=period, interval=interval)
-            
+
             if history.empty:
                 raise ValueError(f"Símbolo desconocido o sin datos históricos: {symbol}")
 
@@ -254,23 +273,25 @@ class MarketDataService:
                 # Filtrar valores nulos o corruptos
                 if pd.isna(row["Open"]) or pd.isna(row["Close"]):
                     continue
-                
-                candles.append(HistoricalCandle(
-                    date=dt.to_pydatetime(),
-                    open=float(row["Open"]),
-                    high=float(row["High"]),
-                    low=float(row["Low"]),
-                    close=float(row["Close"]),
-                    volume=int(row["Volume"])
-                ))
+
+                candles.append(
+                    HistoricalCandle(
+                        date=dt.to_pydatetime(),
+                        open=float(row["Open"]),
+                        high=float(row["High"]),
+                        low=float(row["Low"]),
+                        close=float(row["Close"]),
+                        volume=int(row["Volume"]),
+                    )
+                )
 
             # Almacenar en caché
             cache_val = [c.model_dump() for c in candles]
             for c in cache_val:
                 c["date"] = c["date"].isoformat()
-            
+
             set_cached_data(cache_key, cache_val, 3600)
-            
+
             log_structured(symbol, False, (time.time() - start_time) * 1000, "yfinance")
             return candles
 
@@ -285,17 +306,14 @@ class MarketDataService:
         try:
             ticker = yf.Ticker(symbol)
             dividends = await cls._fetch_with_backoff(lambda: ticker.dividends)
-            
+
             events = []
             if dividends is not None and not dividends.empty:
                 cutoff_date = datetime.now() - timedelta(days=days_range)
                 for dt, val in dividends.items():
                     event_date = dt.to_pydatetime().replace(tzinfo=None)
                     if event_date >= cutoff_date:
-                        events.append(DividendEvent(
-                            date=dt.to_pydatetime(),
-                            value=float(val)
-                        ))
+                        events.append(DividendEvent(date=dt.to_pydatetime(), value=float(val)))
 
             log_structured(symbol, False, (time.time() - start_time) * 1000, "yfinance")
             return events
@@ -310,7 +328,7 @@ class MarketDataService:
         try:
             ticker = yf.Ticker(symbol)
             raw_news = await cls._fetch_with_backoff(lambda: ticker.news)
-            
+
             news_items = []
             if raw_news:
                 for item in raw_news[:limit]:
@@ -318,7 +336,9 @@ class MarketDataService:
                     if content:
                         title = content.get("title") or item.get("title", "Sin Título")
                         provider = content.get("provider", {})
-                        publisher = provider.get("displayName") or provider.get("name") or item.get("publisher", "Desconocido")
+                        publisher = (
+                            provider.get("displayName") or provider.get("name") or item.get("publisher", "Desconocido")
+                        )
                         click_url = content.get("clickThroughUrl", {})
                         canon_url = content.get("canonicalUrl", {})
                         link = click_url.get("url") or canon_url.get("url") or item.get("link", "#")
@@ -331,19 +351,20 @@ class MarketDataService:
                             except Exception:
                                 provider_publish_time = datetime.now(timezone.utc)
                         else:
-                            provider_publish_time = datetime.fromtimestamp(item.get("providerPublishTime", 0), timezone.utc)
+                            provider_publish_time = datetime.fromtimestamp(
+                                item.get("providerPublishTime", 0), timezone.utc
+                            )
                     else:
                         title = item.get("title", "Sin Título")
                         publisher = item.get("publisher", "Desconocido")
                         link = item.get("link", "#")
                         provider_publish_time = datetime.fromtimestamp(item.get("providerPublishTime", 0), timezone.utc)
 
-                    news_items.append(NewsItem(
-                        title=title,
-                        publisher=publisher,
-                        link=link,
-                        provider_publish_time=provider_publish_time
-                    ))
+                    news_items.append(
+                        NewsItem(
+                            title=title, publisher=publisher, link=link, provider_publish_time=provider_publish_time
+                        )
+                    )
 
             log_structured(symbol, False, (time.time() - start_time) * 1000, "yfinance")
             return news_items
@@ -372,9 +393,11 @@ class MarketDataService:
 
         now = time.time()
         # Caché de 1 hora
-        if lookup_curr in cls._exchange_rates_cache and (now - cls._exchange_rates_timestamp.get(lookup_curr, 0) < 3600):
-            rate = cls._exchange_rates_cache[lookup_curr]
-            return (rate / 100.0) if is_pence else rate
+        if lookup_curr in cls._exchange_rates_cache and (
+            now - cls._exchange_rates_timestamp.get(lookup_curr, 0.0) < 3600
+        ):
+            rate_val: float = float(cls._exchange_rates_cache[lookup_curr])
+            return (rate_val / 100.0) if is_pence else rate_val
 
         try:
             fx_ticker = yf.Ticker(f"{lookup_curr}USD=X")

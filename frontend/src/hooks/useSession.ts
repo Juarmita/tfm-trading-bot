@@ -54,16 +54,17 @@ export function useSession() {
 
     // A. Obtener saldo inicial de la base de datos
     const fetchInitialWallet = async () => {
-      const { data, error } = (await supabase
+      const { data, error } = await supabase
         .from("wallets")
         .select("balance, currency")
         .eq("user_id", user.id)
-        .maybeSingle()) as any;
+        .maybeSingle();
 
-      if (!error && data) {
+      const walletRow = data as { balance: number; currency: string } | null;
+      if (!error && walletRow) {
         setWallet({
-          balance: Number(data.balance),
-          currency: data.currency,
+          balance: Number(walletRow.balance),
+          currency: walletRow.currency,
         });
       }
     };

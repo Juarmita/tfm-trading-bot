@@ -38,7 +38,7 @@ function LoginForm() {
           router.refresh();
         }, 1500);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       setErrorMsg("Ocurrió un error inesperado al intentar iniciar sesión.");
     } finally {
       setIsLoading(false);
@@ -56,7 +56,7 @@ function LoginForm() {
         },
       });
       if (error) setErrorMsg(error.message);
-    } catch (err: any) {
+    } catch (err: unknown) {
       setErrorMsg("Error al conectar con GitHub Auth.");
     } finally {
       setIsLoading(false);

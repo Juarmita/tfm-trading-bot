@@ -1,27 +1,21 @@
-from fastapi import APIRouter, HTTPException, Query
 from typing import List
-from app.services.market_data import (
-    MarketDataService,
-    Quote,
-    HistoricalCandle,
-    DividendEvent,
-    NewsItem
-)
+
+from fastapi import APIRouter, HTTPException, Query
+
+from app.services.market_data import DividendEvent, HistoricalCandle, MarketDataService, NewsItem, Quote
 
 router = APIRouter()
 
+
 @router.get("/quotes/{symbols}", response_model=List[Quote])
-async def get_quotes(symbols: str):
+async def get_quotes(symbols: str) -> List[Quote]:
     """
     Obtiene la cotización actual para uno o varios símbolos bursátiles (separados por comas).
     Soporte batch: /api/v1/market/quotes/AAPL,MSFT,BTC-USD
     """
     symbol_list = [s.strip().upper() for s in symbols.split(",") if s.strip()]
     if not symbol_list:
-        raise HTTPException(
-            status_code=400,
-            detail="Falta el parámetro de símbolos o está vacío."
-        )
+        raise HTTPException(status_code=400, detail="Falta el parámetro de símbolos o está vacío.")
 
     quotes = []
     errors = []
@@ -36,18 +30,18 @@ async def get_quotes(symbols: str):
     # Si no se pudo obtener ninguna cotización y hubo errores, lanzar excepción 400
     if not quotes and errors:
         raise HTTPException(
-            status_code=400,
-            detail=f"No se pudo recuperar ninguna cotización. Detalles: {'; '.join(errors)}"
+            status_code=400, detail=f"No se pudo recuperar ninguna cotización. Detalles: {'; '.join(errors)}"
         )
 
     return quotes
+
 
 @router.get("/historical/{symbol}", response_model=List[HistoricalCandle])
 async def get_historical(
     symbol: str,
     period: str = Query("6mo", description="Rango temporal (ej. 1mo, 3mo, 6mo, 1y, max)"),
-    interval: str = Query("1d", description="Frecuencia de las velas (ej. 15m, 1h, 1d, 1wk)")
-):
+    interval: str = Query("1d", description="Frecuencia de las velas (ej. 15m, 1h, 1d, 1wk)"),
+) -> List[HistoricalCandle]:
     """
     Obtiene el historial de velas japonesas (OHLCV) para un activo financiero específico.
     """
@@ -57,11 +51,11 @@ async def get_historical(
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+
 @router.get("/dividends/{symbol}", response_model=List[DividendEvent])
 async def get_dividends(
-    symbol: str,
-    range: str = Query("30d", description="Rango de búsqueda hacia atrás (ej: 30d, 90d, 365d)")
-):
+    symbol: str, range: str = Query("30d", description="Rango de búsqueda hacia atrás (ej: 30d, 90d, 365d)")
+) -> List[DividendEvent]:
     """
     Obtiene los eventos de pago de dividendos distribuidos por una compañía.
     """
@@ -79,11 +73,11 @@ async def get_dividends(
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+
 @router.get("/news/{symbol}", response_model=List[NewsItem])
 async def get_news(
-    symbol: str,
-    limit: int = Query(5, ge=1, le=10, description="Límite máximo de artículos a recuperar")
-):
+    symbol: str, limit: int = Query(5, ge=1, le=10, description="Límite máximo de artículos a recuperar")
+) -> List[NewsItem]:
     """
     Obtiene los últimos artículos de prensa financiera y noticias del activo.
     """

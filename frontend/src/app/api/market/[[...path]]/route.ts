@@ -13,7 +13,7 @@ async function fetchYahooFinanceQuotes(symbolsStr: string) {
           const result = yfData.chart?.result?.[0];
           if (result) {
             const meta = result.meta;
-            const closePrices = result.indicators?.quote?.[0]?.close?.filter((p: any) => p !== null && p !== undefined) || [];
+            const closePrices = (result.indicators?.quote?.[0]?.close?.filter((p: unknown) => p !== null && p !== undefined) || []) as number[];
             const price = meta.regularMarketPrice || closePrices[closePrices.length - 1] || 150.0;
             const prevClose = meta.chartPreviousClose || closePrices[closePrices.length - 2] || price;
             const change = price - prevClose;
@@ -81,7 +81,7 @@ export async function GET(
       }
     }
 
-    const data = await res.json();
+    const data = (await res.json()) as unknown;
 
     // Retornar los datos con cabeceras CORS adecuadas
     return NextResponse.json(data, {
@@ -92,7 +92,7 @@ export async function GET(
         "Access-Control-Allow-Headers": "Content-Type, Authorization",
       },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error en proxy de Next.js hacia FastAPI:", error);
     
     if (isQuotesPath) {

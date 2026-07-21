@@ -27,10 +27,13 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
+import { PortfolioResponse } from "@/types";
+import { AxiosError } from "axios";
+
 export default function PortfolioPage() {
   const router = useRouter();
   const { user, wallet, refreshSession } = useSession();
-  const [portfolioData, setPortfolioData] = useState<any>(null);
+  const [portfolioData, setPortfolioData] = useState<PortfolioResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isResetting, setIsResetting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -45,13 +48,14 @@ export default function PortfolioPage() {
     setIsLoading(true);
     setErrorMsg(null);
     try {
-      const res = await apiClient.get(`/trading/portfolio/${user.id}`);
+      const res = await apiClient.get<PortfolioResponse>(`/trading/portfolio/${user.id}`);
       setPortfolioData(res.data);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error al cargar portafolio:", err);
+      const axiosErr = err as AxiosError<{ detail?: string; error?: string }>;
       setErrorMsg(
-        err.response?.data?.detail ||
-        err.response?.data?.error ||
+        axiosErr.response?.data?.detail ||
+        axiosErr.response?.data?.error ||
         "Fallo de conexión al cargar datos del portafolio."
       );
     } finally {
@@ -63,6 +67,7 @@ export default function PortfolioPage() {
     if (mounted && user) {
       fetchPortfolio();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mounted, user]);
 
   const handleSync = async () => {
@@ -91,21 +96,21 @@ export default function PortfolioPage() {
 
     setIsResetting(true);
     try {
-      const { data: userSessions } = await (supabase
-        .from("ai_trading_sessions") as any)
+      const { data: userSessions } = await supabase
+        .from("ai_trading_sessions")
         .select("id")
         .eq("user_id", user.id);
 
       if (userSessions && userSessions.length > 0) {
-        const sessionIds = (userSessions as any[]).map((s) => s.id);
+        const sessionIds = userSessions.map((s: { id: string }) => s.id);
         
-        await (supabase
-          .from("trades") as any)
+        await supabase
+          .from("trades")
           .delete()
           .in("session_id", sessionIds);
 
-        await (supabase
-          .from("ai_trading_sessions") as any)
+        await supabase
+          .from("ai_trading_sessions")
           .delete()
           .in("id", sessionIds);
       }
@@ -159,6 +164,9 @@ export default function PortfolioPage() {
   const positions = portfolioData?.positions || [];
   const facts = portfolioData?.facts || [];
   const news = portfolioData?.news || [];
+
+  const profitLoss = summary?.total_profit_loss ?? 0;
+  const profitLossPct = summary?.total_profit_loss_pct ?? 0;
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex overflow-hidden relative">
@@ -252,70 +260,68 @@ export default function PortfolioPage() {
 
         {/* Scrollable Container */}
         <div className="p-8 space-y-8 flex-1">
-          {errorMsg && (
-            <div className="flex items-center gap-3 p-4 bg-red-500/10 border border-red-500/20 text-red-400 text-sm rounded-xl">
-              <ShieldAlert size={18} className="shrink-0" />
-              <span>{errorMsg}</span>
+        {isLoading ? (
+          <div className="flex flex-col items-center justify-center py-24 space-y-4">
+            <div className="w-12 h-12 rounded-full border-2 border-emerald-500/20 border-t-emerald-500 animate-spin" />
+            <p className="text-sm text-slate-400 font-medium">Consolidando valoraciones y noticias en vivo...</p>
+          </div>
+        ) : errorMsg ? (
+          <div className="bg-red-950/20 border border-red-900/40 rounded-2xl p-8 text-center space-y-4 max-w-md mx-auto">
+            <ShieldAlert className="w-12 h-12 text-red-400 mx-auto" />
+            <div>
+              <h3 className="font-bold text-lg text-white">Error al cargar datos</h3>
+              <p className="text-xs text-slate-400 mt-1">{errorMsg}</p>
             </div>
-          )}
+            <button
+              onClick={fetchPortfolio}
+              className="px-4 py-2 rounded-xl bg-red-900/40 border border-red-800 text-xs font-bold text-red-200 hover:bg-red-800 transition"
+            >
+              Reintentar Conexión
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-8">
+            {/* KPI Cards Header */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="bg-slate-900/40 border border-slate-900 rounded-2xl p-6 relative overflow-hidden backdrop-blur-sm">
+                <span className="text-xs text-slate-400 font-medium">Valor Total Portafolio</span>
+                <h3 className="text-2xl font-extrabold text-white mt-1 font-mono">
+                  ${summary?.total_portfolio_value?.toLocaleString("en-US", { minimumFractionDigits: 2 }) ?? "0.00"}
+                </h3>
+                <p className="text-xs text-slate-500 mt-2">Efectivo + Valoraciones de Mercado</p>
+              </div>
 
-          {isLoading && !portfolioData ? (
-            <div className="h-[400px] flex flex-col items-center justify-center text-slate-400 gap-3">
-              <RefreshCw className="animate-spin text-emerald-500" size={32} />
-              <span>Cargando datos de cartera en tiempo real...</span>
-            </div>
-          ) : (
-            <>
-              {/* KPIs Summary */}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                <div className="bg-slate-900/40 border border-slate-900 rounded-2xl p-6 relative overflow-hidden backdrop-blur-sm">
-                  <div className="absolute right-4 top-4 text-emerald-500/10">
-                    <Briefcase size={40} />
-                  </div>
-                  <span className="text-xs text-slate-400 font-medium">Valor del Portafolio</span>
-                  <h3 className="text-2xl font-extrabold text-white mt-1 font-mono">
-                    ${summary?.total_portfolio_value.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+              <div className="bg-slate-900/40 border border-slate-900 rounded-2xl p-6 relative overflow-hidden backdrop-blur-sm">
+                <span className="text-xs text-slate-400 font-medium">Efectivo Disponible</span>
+                <h3 className="text-2xl font-extrabold text-emerald-400 mt-1 font-mono">
+                  ${summary?.cash?.toLocaleString("en-US", { minimumFractionDigits: 2 }) ?? "0.00"}
+                </h3>
+                <p className="text-xs text-slate-500 mt-2">Liquidez lista para operar</p>
+              </div>
+
+              <div className="bg-slate-900/40 border border-slate-900 rounded-2xl p-6 relative overflow-hidden backdrop-blur-sm">
+                <span className="text-xs text-slate-400 font-medium">Capital Invertido (Cost Basis)</span>
+                <h3 className="text-2xl font-extrabold text-slate-200 mt-1 font-mono">
+                  ${summary?.total_cost_basis?.toLocaleString("en-US", { minimumFractionDigits: 2 }) ?? "0.00"}
+                </h3>
+                <p className="text-xs text-slate-500 mt-2">Costo medio acumulado</p>
+              </div>
+
+              <div className="bg-slate-900/40 border border-slate-900 rounded-2xl p-6 relative overflow-hidden backdrop-blur-sm">
+                <span className="text-xs text-slate-400 font-medium">Ganancia / Pérdida Latente</span>
+                <div className="flex items-baseline gap-2 mt-1">
+                  <h3 className={`text-2xl font-extrabold font-mono ${profitLoss >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                    {profitLoss >= 0 ? "+" : ""}${profitLoss.toLocaleString("en-US", { minimumFractionDigits: 2 })}
                   </h3>
-                  <p className="text-xs text-slate-500 mt-2">Valor de Mercado + Efectivo</p>
                 </div>
-
-                <div className="bg-slate-900/40 border border-slate-900 rounded-2xl p-6 relative overflow-hidden backdrop-blur-sm">
-                  <div className="absolute right-4 top-4 text-emerald-500/10">
-                    <Coins size={40} />
-                  </div>
-                  <span className="text-xs text-slate-400 font-medium">Efectivo Líquido (Billetera)</span>
-                  <h3 className="text-2xl font-extrabold text-white mt-1 font-mono">
-                    ${summary?.cash.toLocaleString("en-US", { minimumFractionDigits: 2 })}
-                  </h3>
-                  <p className="text-xs text-slate-500 mt-2">Fondos libres para operar</p>
-                </div>
-
-                <div className="bg-slate-900/40 border border-slate-900 rounded-2xl p-6 relative overflow-hidden backdrop-blur-sm">
-                  <div className="absolute right-4 top-4 text-emerald-500/10">
-                    <DollarSign size={40} />
-                  </div>
-                  <span className="text-xs text-slate-400 font-medium">Capital Invertido</span>
-                  <h3 className="text-2xl font-extrabold text-white mt-1 font-mono">
-                    ${summary?.total_cost_basis.toLocaleString("en-US", { minimumFractionDigits: 2 })}
-                  </h3>
-                  <p className="text-xs text-slate-500 mt-2">Costo medio acumulado</p>
-                </div>
-
-                <div className="bg-slate-900/40 border border-slate-900 rounded-2xl p-6 relative overflow-hidden backdrop-blur-sm">
-                  <span className="text-xs text-slate-400 font-medium">Ganancia / Pérdida Latente</span>
-                  <div className="flex items-baseline gap-2 mt-1">
-                    <h3 className={`text-2xl font-extrabold font-mono ${summary?.total_profit_loss >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-                      {summary?.total_profit_loss >= 0 ? "+" : ""}${summary?.total_profit_loss.toLocaleString("en-US", { minimumFractionDigits: 2 })}
-                    </h3>
-                  </div>
-                  <div className={`inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded mt-2 ${
-                    summary?.total_profit_loss >= 0 ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"
-                  }`}>
-                    {summary?.total_profit_loss >= 0 ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
-                    <span>{summary?.total_profit_loss_pct >= 0 ? "+" : ""}{summary?.total_profit_loss_pct.toFixed(2)}%</span>
-                  </div>
+                <div className={`inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded mt-2 ${
+                  profitLoss >= 0 ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"
+                }`}>
+                  {profitLoss >= 0 ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
+                  <span>{profitLossPct >= 0 ? "+" : ""}{profitLossPct.toFixed(2)}%</span>
                 </div>
               </div>
+            </div>
 
               {/* Grid Principal: Tabla + Datos de Interés */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -451,7 +457,7 @@ export default function PortfolioPage() {
                   </div>
                 )}
               </div>
-            </>
+            </div>
           )}
         </div>
       </main>

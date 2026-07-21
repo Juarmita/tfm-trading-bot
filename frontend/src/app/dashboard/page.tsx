@@ -83,7 +83,15 @@ export default function DashboardPage() {
         .order("created_at", { ascending: false });
 
       if (!error && data) {
-        const formattedTrades: DatabaseTrade[] = data.map((t: any) => ({
+        const formattedTrades: DatabaseTrade[] = (data as Array<{
+          id: string;
+          symbol: string;
+          action: "BUY" | "SELL";
+          quantity: number | string;
+          price_executed: number | string;
+          amount_usd: number | string;
+          created_at: string;
+        }>).map((t) => ({
           id: t.id,
           symbol: t.symbol,
           action: t.action,
@@ -128,6 +136,7 @@ export default function DashboardPage() {
     return () => {
       supabase.removeChannel(tradesChannel);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
   // 3b. Sincronizar todos los datos manualmente
@@ -151,21 +160,21 @@ export default function DashboardPage() {
 
     setIsResetting(true);
     try {
-      const { data: userSessions } = await (supabase
-        .from("ai_trading_sessions") as any)
+      const { data: userSessions } = await supabase
+        .from("ai_trading_sessions")
         .select("id")
         .eq("user_id", user.id);
 
       if (userSessions && userSessions.length > 0) {
-        const sessionIds = (userSessions as any[]).map((s) => s.id);
+        const sessionIds = userSessions.map((s: { id: string }) => s.id);
         
-        await (supabase
-          .from("trades") as any)
+        await supabase
+          .from("trades")
           .delete()
           .in("session_id", sessionIds);
 
-        await (supabase
-          .from("ai_trading_sessions") as any)
+        await supabase
+          .from("ai_trading_sessions")
           .delete()
           .in("id", sessionIds);
       }

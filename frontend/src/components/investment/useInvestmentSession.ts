@@ -3,6 +3,8 @@ import { z } from "zod";
 import { useSession } from "@/hooks/useSession";
 import { apiClient } from "@/lib/api/client";
 import { toast } from "sonner";
+import { AIDecisionOutput } from "@/types";
+import { AxiosError } from "axios";
 
 // Definición de estados de la Máquina de Estados Finita (FSM)
 export type SessionState =
@@ -35,7 +37,7 @@ export const createInvestmentSchema = (maxBalance: number) => {
 export function useInvestmentSession() {
   const { user, wallet } = useSession();
   const [state, setState] = useState<SessionState>("idle");
-  const [decisionOutput, setDecisionOutput] = useState<any>(null);
+  const [decisionOutput, setDecisionOutput] = useState<AIDecisionOutput | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   /**
@@ -89,9 +91,10 @@ export function useInvestmentSession() {
       setDecisionOutput(response.data);
       setState("ready");
       toast.success("¡Análisis de mercado completado por la IA!");
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const axiosErr = err as AxiosError<{ detail?: string }>;
       const serverError =
-        err.response?.data?.detail || "Fallo de conexión con el motor cuantitativo de IA.";
+        axiosErr.response?.data?.detail || "Fallo de conexión con el motor cuantitativo de IA.";
       setError(serverError);
       setState("idle");
       toast.error(serverError);

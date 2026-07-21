@@ -21,7 +21,7 @@ export async function GET(
       headers: headers,
     });
 
-    const data = await res.json();
+    const data = (await res.json()) as unknown;
 
     return NextResponse.json(data, {
       status: res.status,
@@ -31,7 +31,7 @@ export async function GET(
         "Access-Control-Allow-Headers": "Content-Type, Authorization",
       },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error(`Error en proxy GET /api/trading/portfolio/${userId}:`, error);
     
     return NextResponse.json(

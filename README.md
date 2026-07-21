@@ -1,11 +1,31 @@
 # TFM-Trading-Bot: Sistema de Inversión Automatizada Cuantitativa
 
-[![FastAPI Build & Test](https://github.com/Juarmita/tfm-trading-bot/actions/workflows/ci.yml/badge.svg)](https://github.com/Juarmita/tfm-trading-bot/actions)
-[![FastAPI Pytest Coverage](https://img.shields.io/badge/Coverage-100%25-emerald)](https://github.com/Juarmita/tfm-trading-bot)
+> **Versión de Entrega: v1.0-TFM** · Julio 2026
+
+[![CI Pipeline](https://github.com/Juarmita/tfm-trading-bot/actions/workflows/ci.yml/badge.svg)](https://github.com/Juarmita/tfm-trading-bot/actions)
+[![Tests](https://img.shields.io/badge/Tests-18%20passed-brightgreen)](https://github.com/Juarmita/tfm-trading-bot/actions)
+[![Coverage](https://img.shields.io/badge/Coverage-100%25-emerald)](https://github.com/Juarmita/tfm-trading-bot)
+[![TypeScript](https://img.shields.io/badge/TypeScript-strict%20✓-blue)](https://github.com/Juarmita/tfm-trading-bot)
+[![ESLint](https://img.shields.io/badge/ESLint-0%20errors-blue)](https://github.com/Juarmita/tfm-trading-bot)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![Academic Project](https://img.shields.io/badge/TFM-Evaluación%20Académica-purple)](https://github.com/Juarmita/tfm-trading-bot)
 
 Trabajo de Fin de Máster (TFM) desarrollado por **Juan Manuel Garcia Jurado** (Curso 2025/2026). Este proyecto presenta el diseño, arquitectura y validación de una plataforma de negociación algorítmica desacoplada orientada a la toma de decisiones asistida por Inteligencia Artificial y finanzas cuantitativas.
+
+---
+
+## 📦 Estado de Entrega
+
+| Criterio | Estado | Evidencia |
+|---|---|---|
+| **1a. Código fuente completo** | ✅ Entregado | Repositorio monorepo `frontend/` + `backend/` |
+| **1b. Tests unitarios** | ✅ 18 tests pasan | `uv run pytest` (CI verde) |
+| **1c. Auditoría de seguridad** | ✅ Completada | [`docs/security_audit_report.md`](docs/security_audit_report.md) |
+| **1d. Calidad de código** | ✅ Sin violaciones | `ruff` ✓, `black` ✓, `tsc --noEmit` ✓, `ESLint` ✓ |
+| **1e. Documentación técnica** | ✅ Completa | README, DEPLOY.md, diagramas, defensa |
+| **2. Repositorio Git** | ✅ Público | [github.com/Juarmita/tfm-trading-bot](https://github.com/Juarmita/tfm-trading-bot) |
+| **3. Deploy en producción** | ✅ Operativo | [Frontend Vercel](https://frontend-five-kohl-4rc8ugx0s0.vercel.app) · [Backend Render](https://tfm-trading-bot.onrender.com) |
+| **4. Presentación de defensa** | ✅ Preparada | [`docs/presentacion_defensa.md`](docs/presentacion_defensa.md) |
 
 ---
 
@@ -15,7 +35,7 @@ En el ámbito de las finanzas personales y el trading retail, existe una marcada
 
 Este proyecto tiene como objetivo diseñar y construir un **Sistema de Inversión Automatizada Cuantitativa** que resuelva esta asimetría mediante dos pilares fundamentales:
 1. **Automatización Explicativa**: El sistema no solo emite órdenes comerciales (`BUY`, `SELL`, `HOLD`), sino que genera una justificación algorítmica formal en formato Markdown académico, detallando la ponderación de factores técnicos, fundamentales y ex-dividendos.
-2. **Gestión de Riesgo Dinámico**: La arquitectura implementa controles de riesgo estrictos en tiempo de ejecución (penalizaciones por sobreconcentración en un solo activo >30%, correlaciones cruzadas cruzadas >0.70 y recortes automáticos de asignación por drawdown histórico >25%).
+2. **Gestión de Riesgo Dinámico**: La arquitectura implementa controles de riesgo estrictos en tiempo de ejecución (penalizaciones por sobreconcentración en un solo activo >30%, correlaciones cruzadas >0.70 y recortes automáticos de asignación por drawdown histórico >25%).
 
 El alcance de este desarrollo abarca una versión **demo de alta fidelidad** totalmente funcional que interactúa con datos de mercado en tiempo real, persistencia local y en la nube (Supabase) y un motor simulador transaccional virtual compatible con ACID. La arquitectura está diseñada utilizando el patrón **Adapter**, lo que permite una integración inmediata con brokers reales en producción (como Alpaca o Interactive Brokers) mediante la mera adición de credenciales de red y sin requerir ninguna modificación o refactorización del núcleo del motor de toma de decisiones.
 
@@ -86,30 +106,33 @@ El repositorio está organizado bajo un enfoque modular, manteniendo una estrict
 ```text
 tfm-trading-bot/
 ├── .github/workflows/
+│   └── ci.yml                     # Pipeline CI: lint + test + build
 ├── DEPLOY.md                      # Guía de despliegue principal en producción
-├── README.md                      # Documento de presentación principal
+├── README.md                      # Documento de presentación principal (este archivo)
+├── LICENSE                        # Licencia MIT
+├── .env.example                   # Plantilla de variables de entorno documentada
 ├── backend/
 │   ├── app/
 │   │   ├── api/v1/
 │   │   │   ├── market.py          # Endpoints de consulta de mercado
 │   │   │   └── trading.py         # Endpoints de operaciones y portafolio
 │   │   ├── core/
-│   │   │   ├── broker_adapter.py  # Abstracciones del Broker
+│   │   │   ├── broker_adapter.py  # Abstracciones del Broker (IBrokerAdapter)
 │   │   │   ├── config.py          # Carga de variables de entorno
-│   │   │   └── dependencies.py    # Inyección de dependencias
+│   │   │   └── dependencies.py    # Inyección de dependencias (Factory)
 │   │   ├── services/
-│   │   │   ├── ai_engine.py       # Algoritmo de scoring y razonador
+│   │   │   ├── ai_engine.py       # Algoritmo de scoring y razonador IA
 │   │   │   ├── market_data.py     # Descarga de datos y tipos de cambio
 │   │   │   ├── demo_broker.py     # Simulación ACID transaccional
 │   │   │   └── order_executor.py  # Ejecución de órdenes de mercado
 │   │   └── main.py                # Entrada principal FastAPI
 │   ├── tests/
-│   │   ├── test_ai_engine.py      # Tests del motor algorítmico y short history
-│   │   ├── test_broker.py         # Tests del broker y balance insuficiente
-│   │   ├── test_main.py           # Tests de integridad de endpoints básicos
-│   │   ├── test_market_data.py    # Tests de descargas de yfinance y caché
-│   │   └── test_portfolio.py      # Tests de agrupación y ROI de portafolio
-│   ├── pyproject.toml             # Dependencias del backend (Poetry)
+│   │   ├── test_ai_engine.py      # Tests del motor algorítmico (7 tests)
+│   │   ├── test_broker.py         # Tests del broker y balance insuficiente (4 tests)
+│   │   ├── test_main.py           # Tests de endpoints + seguridad JWT (4 tests)
+│   │   ├── test_market_data.py    # Tests de yfinance y caché (2 tests)
+│   │   └── test_portfolio.py      # Tests de agrupación y ROI (1 test)
+│   ├── pyproject.toml             # Dependencias del backend (uv/Poetry)
 │   └── Dockerfile                 # Contenerización Docker para producción
 ├── frontend/
 │   ├── src/
@@ -118,19 +141,28 @@ tfm-trading-bot/
 │   │   │   ├── invest/            # Interfaz de simulación y Drawer de inversión
 │   │   │   ├── login/             # Control de accesos seguro
 │   │   │   ├── portfolio/         # Vista consolidada del portafolio del usuario
-│   │   │   └── api/trading/       # Proxy local Next.js
+│   │   │   ├── api/               # Proxy seguro Next.js (trading + market + portfolio)
+│   │   │   └── page.tsx           # Landing page de presentación
 │   │   ├── components/investment/ # Drawer de inversión y hooks del flujo
-│   │   ├── hooks/
-│   │   │   └── useSession.ts      # Realtime balances e info de sesión
+│   │   ├── hooks/useSession.ts    # Realtime balances e info de sesión
 │   │   └── lib/
-│   │       ├── api/client.ts      # Cliente de comunicación HTTP Axios
+│   │       ├── api/client.ts      # Cliente HTTP Axios con Bearer token
 │   │       └── supabase/client.ts # Inicialización del cliente JS Supabase
+│   ├── middleware.ts              # Protección de rutas sensibles
+│   ├── .eslintrc.json             # Configuración ESLint
 │   ├── package.json               # Dependencias del frontend
 │   └── next.config.ts             # Configuración del bundler
 ├── supabase/
-│   └── migrations/                # Esquemas y semillas SQL para Supabase
+│   └── migrations/                # Esquema SQL completo (DDL + RLS + seeds)
+├── infra/
+│   ├── deploy-vercel.sh           # Script de despliegue automático
+│   └── init-env.sh                # Inicialización de entorno
 └── docs/
-    └── presentacion.pptx          # Diapositivas de defensa académica
+    ├── presentacion_defensa.md    # Diapositivas de defensa académica
+    ├── security_audit_report.md   # Informe de auditoría de seguridad
+    ├── entrega_final_structure.md # Jerarquía de entrega para el tribunal
+    ├── defense_qa_prep.md         # Preguntas probables del tribunal + respuestas
+    └── tfm_compliance.md          # Tabla de cumplimiento académico
 ```
 
 ---
@@ -143,7 +175,8 @@ tfm-trading-bot/
 - **Gestión activa de riesgos**: Los filtros implementados previenen la ruina del portafolio en tiempo de ejecución. Penaliza si hay correlación de cartera >0.70, corta la operación si la concentración total del activo excede el 30%, y recorta la asignación de capital a la mitad (50% de descuento) si el drawdown histórico del activo es mayor al 25%.
 - **Razonamiento explicativo estructurado**: Genera salidas estructuradas en Markdown académico explicando matemáticamente cada ponderación. Es exportable para la sección de resultados del TFM.
 - **Broker Adapter Pattern**: La interfaz `IBrokerAdapter` permite desacoplar por completo la ejecución de mercado de la lógica cuantitativa del bot.
-- **Desarrollo sin dependencias**: El frontend detecta automáticamente si estás en un entorno de desarrollo sin base de datos en caliente y monta un perfil simulado para garantizar la evaluación instantánea del flujo.
+- **Conversión multidivisa en tiempo real**: Soporte para mercados internacionales (LSE, XETRA, BME, Euronext) con conversión automática de divisas (GBp, EUR, GBP) a USD vía tipos de cambio en vivo.
+- **Portafolio consolidado**: Vista unificada de posiciones abiertas con valoración en tiempo real, KPIs de rendimiento, noticias financieras cruzadas y análisis de concentración.
 
 ---
 
@@ -177,7 +210,8 @@ El repositorio está alojado públicamente en GitHub:
 ## 4. Presentación de defensa
 
 El material de apoyo para la defensa académica del TFM se encuentra estructurado en el repositorio:
-- **Diapositivas y Presentación**: Disponible en el archivo estructurado para defensa académica [docs/presentacion_defensa.md](file:///c:/Users/juanm/Desktop/TGM/tfm-bot-trading/docs/presentacion_defensa.md).
+- **Diapositivas y Presentación**: Disponible en [`docs/presentacion_defensa.md`](docs/presentacion_defensa.md).
+- **Preparación Q&A del Tribunal**: [`docs/defense_qa_prep.md`](docs/defense_qa_prep.md) — 10 preguntas probables con respuestas técnicas fundamentadas.
 - **Índice de la Defensa**:
   1. Introducción y Planteamiento del Problema
   2. Objetivos Académicos y Diferenciación
@@ -201,7 +235,16 @@ Batería de pruebas que verifica la reproducibilidad (18 tests unitarios pasados
 - `test_broker.py`: Simula slippage y latencia para comprobar la consistencia atómica (ACID) del balance de la billetera al ejecutar órdenes de compra y venta.
 - `test_market_data.py`: Verifica la obtención de cotizaciones, descargas históricas y el funcionamiento del almacenamiento en caché de doble nivel.
 - `test_portfolio.py`: Valida los cálculos financieros de agregación de posiciones netas, coste medio y retorno de inversión (ROI) del portafolio.
-- `test_main.py`: Asegura la respuesta y salud básica de los endpoints del servidor FastAPI.
+- `test_main.py`: Asegura la respuesta y salud básica de los endpoints del servidor FastAPI + bloqueo de peticiones no autorizadas (JWT).
+
+### Verificación rápida de calidad de código:
+```bash
+# Backend
+cd backend && uv run ruff check . && uv run ruff format --check .
+
+# Frontend
+cd frontend && npm run typecheck && npm run lint
+```
 
 ---
 

@@ -1,22 +1,31 @@
-import os
-import time
+import asyncio
 import json
 import logging
-import asyncio
-from uuid import UUID, uuid4
-from decimal import Decimal
-from typing import Literal, List, Dict, Any
+import time
 from datetime import datetime, timezone
+from decimal import Decimal
+from typing import Any, Dict, List, Literal
+from uuid import UUID, uuid4
+
 import numpy as np
 import pandas as pd
 import yfinance as yf
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 # Logger setup (structured JSONL logs)
 logger = logging.getLogger("ai_engine")
 logger.setLevel(logging.INFO)
 
-def log_academic_jsonl(symbol: str, factors_used: List[str], weights: Dict[str, float], confidence: float, latency_ms: float, cache_status: str, decision_id: UUID):
+
+def log_academic_jsonl(
+    symbol: str,
+    factors_used: List[str],
+    weights: Dict[str, float],
+    confidence: float,
+    latency_ms: float,
+    cache_status: str,
+    decision_id: UUID,
+) -> None:
     log_entry = {
         "timestamp": datetime.now(timezone.utc).isoformat(),
         "decision_id": str(decision_id),
@@ -25,13 +34,15 @@ def log_academic_jsonl(symbol: str, factors_used: List[str], weights: Dict[str, 
         "weights_applied": weights,
         "confidence": round(confidence, 2),
         "latency_ms": round(latency_ms, 2),
-        "cache_status": cache_status
+        "cache_status": cache_status,
     }
     print(json.dumps(log_entry))
+
 
 # -------------------------------------------------------------------------
 # 1. PYDANTIC SCHEMAS (Pydantic v2)
 # -------------------------------------------------------------------------
+
 
 class ExecutionOrder(BaseModel):
     action: Literal["BUY", "SELL", "HOLD"] = Field(..., description="Acción de orden comercial")
@@ -40,6 +51,7 @@ class ExecutionOrder(BaseModel):
     price_estimated: float = Field(..., description="Precio estimado de mercado")
     amount_usd: float = Field(..., description="Monto total estimado de la operación en USD")
     reason: str = Field(..., description="Razón individual asociada a esta orden")
+
 
 class AIDecisionOutput(BaseModel):
     session_id: UUID = Field(..., description="Identificador único de la sesión de toma de decisiones")
@@ -50,27 +62,46 @@ class AIDecisionOutput(BaseModel):
     orders: List[ExecutionOrder] = Field(..., description="Arreglo de órdenes de compra/venta generadas")
     reasoning_markdown: str = Field(..., description="Razonamiento lógico completo formateado en Markdown académico")
 
+
+class MarketDataSnapshot(BaseModel):
+    """DTO desacoplado con la instantánea de datos de mercado necesaria para inferencia pura."""
+
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    symbol: str
+    historical_df: Any  # pd.DataFrame
+    info: Dict[str, Any]
+    currency: str
+    usd_rate: float
+    concentration: float
+    correlation: float
+
+
 # -------------------------------------------------------------------------
 # 2. MOTOR DE CÁLCULO E INFERENCIA QUANTITATIVA (AI ENGINE)
 # -------------------------------------------------------------------------
 
+
 class AIEngineService:
     @staticmethod
     def calculate_technical_indicators(df: pd.DataFrame) -> Dict[str, float]:
-        """Calcula indicadores técnicos de mercado (SMA, EMA, RSI, MACD, ATR, Vol)."""
+        """Calcula indicadores técnicos de mercado (SMA, EMA, RSI, MACD, ATR, Vol).
+
+        Es una función matemática pura sin efectos secundarios ni I/O.
+        """
         close = df["Close"]
         high = df["High"]
         low = df["Low"]
         volume = df["Volume"]
 
         # 1. SMAs
-        sma20 = close.rolling(20).mean().iloc[-1]
-        sma50 = close.rolling(50).mean().iloc[-1]
-        sma200 = close.rolling(200).mean().iloc[-1]
+        sma20 = float(close.rolling(20).mean().iloc[-1])
+        sma50 = float(close.rolling(50).mean().iloc[-1])
+        sma200 = float(close.rolling(200).mean().iloc[-1])
 
         # 2. EMAs
-        ema12 = close.ewm(span=12, adjust=False).mean().iloc[-1]
-        ema26 = close.ewm(span=26, adjust=False).mean().iloc[-1]
+        ema12 = float(close.ewm(span=12, adjust=False).mean().iloc[-1])
+        ema26 = float(close.ewm(span=26, adjust=False).mean().iloc[-1])
 
         # 3. RSI14
         delta = close.diff()
@@ -79,26 +110,22 @@ class AIEngineService:
         avg_gain = gain.rolling(14).mean()
         avg_loss = loss.rolling(14).mean()
         rs = avg_gain / avg_loss
-        rsi14 = (100 - (100 / (1 + rs))).iloc[-1]
+        rsi14 = float((100 - (100 / (1 + rs))).iloc[-1])
 
         # 4. MACD (12, 26, 9)
         macd_line = close.ewm(span=12, adjust=False).mean() - close.ewm(span=26, adjust=False).mean()
         signal_line = macd_line.ewm(span=9, adjust=False).mean()
-        macd_val = macd_line.iloc[-1]
-        macd_signal = signal_line.iloc[-1]
+        macd_val = float(macd_line.iloc[-1])
+        macd_signal = float(signal_line.iloc[-1])
 
         # 5. ATR14 (Average True Range)
         prev_close = close.shift(1)
-        tr = pd.concat([
-            high - low,
-            (high - prev_close).abs(),
-            (low - prev_close).abs()
-        ], axis=1).max(axis=1)
-        atr14 = tr.rolling(14).mean().iloc[-1]
+        tr = pd.concat([high - low, (high - prev_close).abs(), (low - prev_close).abs()], axis=1).max(axis=1)
+        atr14 = float(tr.rolling(14).mean().iloc[-1])
 
         # 6. Volumen Relativo vs Media 20d
         vol_sma20 = volume.rolling(20).mean()
-        rel_vol = (volume / vol_sma20).iloc[-1]
+        rel_vol = float((volume / vol_sma20).iloc[-1])
 
         # 7. Drawdown Máximo (últimos 90 días)
         last_90 = close.iloc[-90:] if len(close) >= 90 else close
@@ -106,28 +133,26 @@ class AIEngineService:
         drawdown = (last_90 - roll_max) / roll_max
         max_drawdown = float(drawdown.min() * -100.0)
 
-        # Reemplazar valores nulos (NaN) con valores neutrales o lanzar error
+        latest_price = float(close.iloc[-1])
         metrics = {
-            "price": float(close.iloc[-1]),
-            "sma20": float(sma20) if not np.isnan(sma20) else float(close.iloc[-1]),
-            "sma50": float(sma50) if not np.isnan(sma50) else float(close.iloc[-1]),
-            "sma200": float(sma200) if not np.isnan(sma200) else float(close.iloc[-1]),
-            "ema12": float(ema12) if not np.isnan(ema12) else float(close.iloc[-1]),
-            "ema26": float(ema26) if not np.isnan(ema26) else float(close.iloc[-1]),
-            "rsi14": float(rsi14) if not np.isnan(rsi14) else 50.0,
-            "macd": float(macd_val) if not np.isnan(macd_val) else 0.0,
-            "macd_signal": float(macd_signal) if not np.isnan(macd_signal) else 0.0,
-            "atr14": float(atr14) if not np.isnan(atr14) else 1.0,
-            "rel_vol": float(rel_vol) if not np.isnan(rel_vol) else 1.0,
-            "max_drawdown": max_drawdown if not np.isnan(max_drawdown) else 0.0
+            "price": latest_price,
+            "sma20": sma20 if not np.isnan(sma20) else latest_price,
+            "sma50": sma50 if not np.isnan(sma50) else latest_price,
+            "sma200": sma200 if not np.isnan(sma200) else latest_price,
+            "ema12": ema12 if not np.isnan(ema12) else latest_price,
+            "ema26": ema26 if not np.isnan(ema26) else latest_price,
+            "rsi14": rsi14 if not np.isnan(rsi14) else 50.0,
+            "macd": macd_val if not np.isnan(macd_val) else 0.0,
+            "macd_signal": macd_signal if not np.isnan(macd_signal) else 0.0,
+            "atr14": atr14 if not np.isnan(atr14) else 1.0,
+            "rel_vol": rel_vol if not np.isnan(rel_vol) else 1.0,
+            "max_drawdown": max_drawdown if not np.isnan(max_drawdown) else 0.0,
         }
         return metrics
 
     @staticmethod
     def get_portfolio_concentration(user_id: UUID, symbol: str) -> float:
         """Simula la concentración actual de este símbolo en la cartera del usuario."""
-        # En una versión de prod, se consultaría la base de datos de transacciones/wallets
-        # Retorna un porcentaje representativo (ej: 0.15 = 15%)
         return 0.12
 
     @staticmethod
@@ -136,59 +161,41 @@ class AIEngineService:
         return 0.45
 
     @classmethod
-    async def analyze_and_decide(
+    def evaluate_quantitative_strategy(
         cls,
+        snapshot: MarketDataSnapshot,
         user_id: UUID,
         symbol: str,
         strategy_type: Literal["long_term", "short_term"],
         available_capital: Decimal,
-        max_iterations: int = 3
+        session_id: UUID,
+        start_time: float,
     ) -> AIDecisionOutput:
-        start_time = time.time()
-        session_id = uuid4()
+        """Función pura de evaluación estratégica e inferencia cuantitativa (Clean Domain Layer).
+
+        Realiza cálculos de puntuación, evaluación de riesgo, dimensionamiento de posición y
+        generación de orden sin realizar ninguna llamada de red ni E/S.
+        """
         symbol_upper = symbol.upper()
-
-        # 1. Obtener Histórico (1 año para calcular SMA200/indicadores)
-        ticker = yf.Ticker(symbol_upper)
-        loop = asyncio.get_event_loop()
-        df = await loop.run_in_executor(None, lambda: ticker.history(period="1y"))
-
-        if df.empty or len(df) == 0:
-            raise ValueError(f"El símbolo '{symbol_upper}' no existe en Yahoo Finance o ha sido deslistado. Verifica el ticker e inténtalo de nuevo (ej: AAPL, BTC-USD, MSFT, o ABF.L para Associated British Foods).")
-
-        # 2. Cálculos Técnicos
+        df: pd.DataFrame = snapshot.historical_df
         metrics = cls.calculate_technical_indicators(df)
+        info = snapshot.info
 
-        # 3. Cálculos Fundamentales
-        # Simular fundamentales con fallback a yfinance si es posible
-        try:
-            info = ticker.info
-            pe = float(info.get("forwardPE") or info.get("trailingPE") or 22.0)
-            sector_pe = 25.0
-            div_yield = float((info.get("dividendYield") or 0.0) * 100.0)
-            debt_equity = float(info.get("debtToEquity") or 85.0)
-        except Exception:
-            # Fallback mock académico estable
-            pe = 19.5
-            sector_pe = 24.0
-            div_yield = 2.15
-            debt_equity = 75.0
+        # Fundamental data parsing
+        pe = float(info.get("forwardPE") or info.get("trailingPE") or 22.0)
+        sector_pe = 25.0
+        div_yield = float((info.get("dividendYield") or 0.0) * 100.0)
+        debt_equity = float(info.get("debtToEquity") or 85.0)
 
-        fundamentals = {
-            "pe": pe,
-            "sector_pe": sector_pe,
-            "div_yield": div_yield,
-            "debt_equity": debt_equity
-        }
+        fundamentals = {"pe": pe, "sector_pe": sector_pe, "div_yield": div_yield, "debt_equity": debt_equity}
 
-        # 4. Evaluación de Riesgos
-        concentration = cls.get_portfolio_concentration(user_id, symbol_upper)
-        correlation = cls.get_portfolio_correlation(symbol_upper)
+        concentration = snapshot.concentration
+        correlation = snapshot.correlation
 
         risk_factors = {
             "concentration_pct": concentration * 100.0,
             "correlation": correlation,
-            "max_drawdown": metrics["max_drawdown"]
+            "max_drawdown": metrics["max_drawdown"],
         }
 
         # Penalizaciones de riesgo
@@ -196,14 +203,13 @@ class AIEngineService:
         drawdown_penalty = metrics["max_drawdown"] > 25.0
         correlation_penalty = correlation > 0.70
 
-        # 5. Enrutamiento de Estrategia
+        # Enrutamiento de Estrategia
         decision: Literal["BUY", "SELL", "HOLD"] = "HOLD"
         score = 0
-        factors_used = []
-        weights = {}
+        factors_used: List[str] = []
+        weights: Dict[str, float] = {}
 
         if strategy_type == "long_term":
-            # Ponderación y factores
             factors_used = ["dividend_yield", "momentum", "valuation"]
             weights = {"dividend_yield": 0.3, "momentum": 0.4, "valuation": 0.3}
 
@@ -219,18 +225,16 @@ class AIEngineService:
             elif score <= 3:
                 decision = "SELL"
 
-        else: # short_term
+        else:  # short_term
             factors_used = ["rsi_oscillator", "relative_volume", "macd_momentum"]
             weights = {"rsi_oscillator": 0.4, "relative_volume": 0.3, "macd_momentum": 0.3}
 
-            # RSI sobreventa
             if metrics["rsi14"] < 30:
                 score += 4
-            # RSI sobrecompra directo dispara venta
             elif metrics["rsi14"] > 70:
                 score = 0
                 decision = "SELL"
-            
+
             if metrics["rel_vol"] > 1.5:
                 score += 3
             if metrics["macd"] > metrics["macd_signal"]:
@@ -249,38 +253,23 @@ class AIEngineService:
 
         if decision == "BUY":
             if concentration_penalty:
-                # Penalización por sobreconcentración: Convertir a HOLD
                 decision = "HOLD"
                 confidence = 0.3
                 final_capital = 0.0
             else:
-                # Reducir tamaño por drawdown histórico extremo
                 if drawdown_penalty:
                     final_capital *= 0.5
-                # Reducir tamaño por correlación alta
                 if correlation_penalty:
                     final_capital *= 0.8
 
-        # 6. Generar Plan de Ejecución
         price = metrics["price"]
-        
-        # Obtener moneda y tasa de cambio
-        currency = "USD"
-        try:
-            currency = ticker.info.get("currency", "USD")
-        except Exception:
-            if symbol_upper.endswith(".MC") or symbol_upper.endswith(".DE") or symbol_upper.endswith(".PA"):
-                currency = "EUR"
-            elif symbol_upper.endswith(".L"):
-                currency = "GBp"
-
-        from app.services.market_data import MarketDataService
-        usd_rate = await MarketDataService.get_usd_exchange_rate(currency)
+        currency = snapshot.currency
+        usd_rate = snapshot.usd_rate
         price_usd = price * usd_rate
-        
+
         qty = (final_capital / price_usd) if price_usd > 0 and final_capital > 0 else 0.0
-        
-        orders = []
+
+        orders: List[ExecutionOrder] = []
         if decision != "HOLD" and qty > 0:
             orders.append(
                 ExecutionOrder(
@@ -289,13 +278,14 @@ class AIEngineService:
                     quantity=round(qty, 4),
                     price_estimated=round(price_usd, 2),
                     amount_usd=round(qty * price_usd, 2),
-                    reason=f"Ejecución de orden automática gatillada por estrategia {strategy_type}."
+                    reason=f"Ejecución de orden automática gatillada por estrategia {strategy_type}.",
                 )
             )
 
-        # 7. Generar Markdown de Razonamiento Académico
-        price_display = f"${price:.2f} USD" if currency == "USD" else f"{price:.2f} {currency} (equiv. a ${price_usd:.2f} USD)"
-        
+        price_display = (
+            f"${price:.2f} USD" if currency == "USD" else f"{price:.2f} {currency} (equiv. a ${price_usd:.2f} USD)"
+        )
+
         reasoning_md = f"""# Decisión IA (ID: {session_id})
 
 ## 📊 Factores Técnicos
@@ -340,11 +330,82 @@ class AIEngineService:
             confidence_score=confidence,
             allocated_capital=round(final_capital, 2),
             orders=orders,
-            reasoning_markdown=reasoning_md
+            reasoning_markdown=reasoning_md,
         )
 
-        # 8. Guardar Logs Académicos Estructurados
         latency = (time.time() - start_time) * 1000
         log_academic_jsonl(symbol_upper, factors_used, weights, confidence, latency, "MISS", session_id)
 
         return decision_output
+
+    @classmethod
+    async def analyze_and_decide(
+        cls,
+        user_id: UUID,
+        symbol: str,
+        strategy_type: Literal["long_term", "short_term"],
+        available_capital: Decimal,
+        max_iterations: int = 3,
+    ) -> AIDecisionOutput:
+        """Orquestador de Aplicación (Clean Infrastructure/App Layer).
+
+        Recupera datos de E/S externas y delega el cálculo puro al dominio.
+        """
+        start_time = time.time()
+        session_id = uuid4()
+        symbol_upper = symbol.upper()
+
+        # 1. Obtener Histórico (E/S externa)
+        ticker = yf.Ticker(symbol_upper)
+        loop = asyncio.get_event_loop()
+        df = await loop.run_in_executor(None, lambda: ticker.history(period="1y"))
+
+        if df.empty or len(df) == 0:
+            raise ValueError(
+                f"El símbolo '{symbol_upper}' no existe en Yahoo Finance o ha sido deslistado. "
+                f"Verifica el ticker e inténtalo de nuevo."
+            )
+
+        # 2. Obtener Info Fundamental (E/S externa)
+        info: Dict[str, Any] = {}
+        try:
+            info = ticker.info or {}
+        except Exception:
+            info = {}
+
+        # 3. Moneda y tasa de cambio (E/S externa)
+        currency = "USD"
+        try:
+            currency = str(info.get("currency") or "USD")
+        except Exception:
+            if symbol_upper.endswith((".MC", ".DE", ".PA")):
+                currency = "EUR"
+            elif symbol_upper.endswith(".L"):
+                currency = "GBp"
+
+        # Importación diferida para prevenir ciclo circular de módulos
+        from app.services.market_data import MarketDataService
+
+        usd_rate = await MarketDataService.get_usd_exchange_rate(currency)
+        concentration = cls.get_portfolio_concentration(user_id, symbol_upper)
+        correlation = cls.get_portfolio_correlation(symbol_upper)
+
+        snapshot = MarketDataSnapshot(
+            symbol=symbol_upper,
+            historical_df=df,
+            info=info,
+            currency=currency,
+            usd_rate=usd_rate,
+            concentration=concentration,
+            correlation=correlation,
+        )
+
+        return cls.evaluate_quantitative_strategy(
+            snapshot=snapshot,
+            user_id=user_id,
+            symbol=symbol_upper,
+            strategy_type=strategy_type,
+            available_capital=available_capital,
+            session_id=session_id,
+            start_time=start_time,
+        )
