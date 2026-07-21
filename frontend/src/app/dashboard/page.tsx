@@ -390,18 +390,7 @@ export default function DashboardPage() {
             {/* Billetera balance */}
             <div className="bg-slate-900/20 border border-slate-900 rounded-xl p-5 backdrop-blur-sm relative overflow-hidden">
               <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/5 rounded-full filter blur-xl"></div>
-              <div className="flex items-center justify-between">
-                <p className="text-xs text-slate-400 font-semibold tracking-wide uppercase">Balance de Cuenta</p>
-                {!isEditingBalance && (
-                  <button
-                    onClick={handleStartEditBalance}
-                    className="text-slate-500 hover:text-emerald-400 transition p-1 rounded-md hover:bg-slate-800/60"
-                    title="Editar saldo"
-                  >
-                    <Pencil size={13} />
-                  </button>
-                )}
-              </div>
+              <p className="text-xs text-slate-400 font-semibold tracking-wide uppercase">Balance de Cuenta</p>
               {isEditingBalance ? (
                 <div className="mt-2 space-y-2">
                   <div className="relative">
@@ -440,10 +429,13 @@ export default function DashboardPage() {
                   <h3 className="text-2xl font-bold mt-2 text-white">
                     ${currentBalance.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </h3>
-                  <div className="flex items-center gap-1 text-[10px] text-slate-500 mt-2">
-                    <Wallet size={12} />
-                    <span>Supabase Live Wallet (USD)</span>
-                  </div>
+                  <button
+                    onClick={handleStartEditBalance}
+                    className="flex items-center gap-1.5 text-[10px] text-emerald-400 hover:text-emerald-300 mt-2 font-semibold transition group"
+                  >
+                    <Pencil size={10} />
+                    <span className="group-hover:underline">Modificar saldo ›</span>
+                  </button>
                 </>
               )}
             </div>

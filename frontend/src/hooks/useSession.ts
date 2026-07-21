@@ -63,13 +63,16 @@ export function useSession() {
     }
   };
 
-  // Función para actualizar el saldo de la billetera (edición manual)
+  // Función para actualizar el saldo de la billetera (edición manual / reset)
+  // Usa upsert para crear la fila si no existe aún en Supabase
   const updateWalletBalance = async (newBalance: number): Promise<boolean> => {
     if (!user) return false;
     const { error } = await (supabase
       .from("wallets") as any)
-      .update({ balance: newBalance })
-      .eq("user_id", user.id);
+      .upsert(
+        { user_id: user.id, balance: newBalance, currency: "USD" },
+        { onConflict: "user_id" }
+      );
 
     if (error) {
       console.error("Error al actualizar saldo de wallet:", error);
@@ -77,7 +80,7 @@ export function useSession() {
     }
 
     // Actualizar el estado local inmediatamente
-    setWallet((prev) => prev ? { ...prev, balance: newBalance } : { balance: newBalance, currency: "USD" });
+    setWallet({ balance: newBalance, currency: "USD" });
     return true;
   };
 

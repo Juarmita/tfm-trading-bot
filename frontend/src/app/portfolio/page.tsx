@@ -332,18 +332,7 @@ export default function PortfolioPage() {
               </div>
 
               <div className="bg-slate-900/40 border border-slate-900 rounded-2xl p-6 relative overflow-hidden backdrop-blur-sm">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs text-slate-400 font-medium">Efectivo Disponible</span>
-                  {!isEditingBalance && (
-                    <button
-                      onClick={handleStartEditBalance}
-                      className="text-slate-500 hover:text-emerald-400 transition p-1 rounded-md hover:bg-slate-800/60"
-                      title="Editar saldo"
-                    >
-                      <Pencil size={13} />
-                    </button>
-                  )}
-                </div>
+                <span className="text-xs text-slate-400 font-medium">Efectivo Disponible</span>
                 {isEditingBalance ? (
                   <div className="mt-2 space-y-2">
                     <div className="relative">
@@ -382,7 +371,13 @@ export default function PortfolioPage() {
                     <h3 className="text-2xl font-extrabold text-emerald-400 mt-1 font-mono">
                       ${summary?.cash?.toLocaleString("en-US", { minimumFractionDigits: 2 }) ?? "0.00"}
                     </h3>
-                    <p className="text-xs text-slate-500 mt-2">Liquidez lista para operar</p>
+                    <button
+                      onClick={handleStartEditBalance}
+                      className="flex items-center gap-1.5 text-[10px] text-emerald-400 hover:text-emerald-300 mt-2 font-semibold transition group"
+                    >
+                      <Pencil size={10} />
+                      <span className="group-hover:underline">Modificar saldo ›</span>
+                    </button>
                   </>
                 )}
               </div>

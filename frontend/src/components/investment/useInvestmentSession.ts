@@ -56,16 +56,8 @@ export function useInvestmentSession() {
     setError(null);
     setState("validating");
 
-    // Protección: si la wallet aún no se ha cargado desde Supabase
-    if (!wallet) {
-      const walletError = "Cargando datos de billetera, por favor espera un momento e inténtalo de nuevo.";
-      setError(walletError);
-      setState("idle");
-      toast.error(walletError);
-      return;
-    }
-
-    const maxBalance = wallet.balance;
+    // Si la wallet no se ha cargado, usar saldo por defecto de $10,000 (igual que el dashboard)
+    const maxBalance = wallet?.balance ?? 10000;
     const schema = createInvestmentSchema(maxBalance);
     const result = schema.safeParse({ amount, strategyType, symbol });
 
