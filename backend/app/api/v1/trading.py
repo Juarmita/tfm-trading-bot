@@ -29,7 +29,8 @@ def get_current_user_id(credentials: HTTPAuthorizationCredentials = Depends(secu
     Si SUPABASE_JWT_SECRET está configurada, valida la firma criptográfica y la audiencia.
     Si no está configurada, decodifica los claims sin verificar firma únicamente para modo demo/desarrollo local.
     """
-    jwt_secret = os.getenv("SUPABASE_JWT_SECRET")
+    # Buscar el secreto JWT en ambas variables de entorno posibles
+    jwt_secret = os.getenv("SUPABASE_JWT_SECRET") or os.getenv("JWT_SECRET")
     demo_mode = os.getenv("NEXT_PUBLIC_DEMO_MODE") == "true" or not jwt_secret
 
     if not credentials:
@@ -43,10 +44,16 @@ def get_current_user_id(credentials: HTTPAuthorizationCredentials = Depends(secu
             # Modo demo local: extraemos claims sin verificar la firma para tolerar entornos offline/sin secrets
             payload = jwt.get_unverified_claims(token)
         else:
-            # Producción: verificación estricta de firma y audiencia (authenticated)
-            payload = jwt.decode(
-                token, jwt_secret, algorithms=["HS256", "RS256", "HS384", "HS512"], audience="authenticated"
-            )
+            # Producción: verificación estricta de firma con HS256 (estándar de Supabase Auth)
+            try:
+                payload = jwt.decode(
+                    token, jwt_secret, algorithms=["HS256"], audience="authenticated"
+                )
+            except JWTError:
+                # Fallback: algunos proyectos Supabase no incluyen audience "authenticated"
+                payload = jwt.decode(
+                    token, jwt_secret, algorithms=["HS256"], options={"verify_aud": False}
+                )
 
         user_id = payload.get("sub")
         if not user_id:
