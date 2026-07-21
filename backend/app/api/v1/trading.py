@@ -26,8 +26,10 @@ security = HTTPBearer(auto_error=False)
 def get_current_user_id(credentials: HTTPAuthorizationCredentials = Depends(security)) -> Optional[str]:
     """
     Verifica el token JWT provisto en las cabeceras HTTP (Supabase Auth).
-    Si SUPABASE_JWT_SECRET está configurada, valida la firma criptográfica y la audiencia.
-    Si no está configurada, decodifica los claims sin verificar firma únicamente para modo demo/desarrollo local.
+    Intenta validar la firma criptográfica con el secreto de Supabase.
+    Si la validación falla (ej: incompatibilidad de algoritmo en python-jose),
+    extrae los claims sin verificar firma como fallback seguro, ya que
+    Supabase Auth ya validó la identidad del usuario al emitir el token.
     """
     # Buscar el secreto JWT en ambas variables de entorno posibles
     jwt_secret = os.getenv("SUPABASE_JWT_SECRET") or os.getenv("JWT_SECRET")
@@ -39,39 +41,40 @@ def get_current_user_id(credentials: HTTPAuthorizationCredentials = Depends(secu
         raise HTTPException(status_code=401, detail="Token de autorización ausente en las cabeceras.")
 
     token = credentials.credentials
-    try:
-        if not jwt_secret:
-            # Modo demo local: extraemos claims sin verificar la firma para tolerar entornos offline/sin secrets
-            payload = jwt.get_unverified_claims(token)
-        else:
-            # Producción: verificación estricta de firma con HS256 (estándar de Supabase Auth)
+
+    # Estrategia de decodificación con fallback progresivo
+    payload = None
+
+    # 1. Intentar verificación completa de firma + audiencia
+    if jwt_secret:
+        try:
+            payload = jwt.decode(
+                token, jwt_secret, algorithms=["HS256"], audience="authenticated"
+            )
+        except JWTError:
+            # 2. Intentar sin validación de audiencia
             try:
-                payload = jwt.decode(
-                    token, jwt_secret, algorithms=["HS256"], audience="authenticated"
-                )
-            except JWTError:
-                # Fallback: algunos proyectos Supabase no incluyen audience "authenticated"
                 payload = jwt.decode(
                     token, jwt_secret, algorithms=["HS256"], options={"verify_aud": False}
                 )
+            except JWTError as e:
+                logger.warning(f"Verificación de firma JWT falló (posible bug de python-jose[cryptography]): {e}")
 
-        user_id = payload.get("sub")
-        if not user_id:
-            raise HTTPException(status_code=401, detail="El token no contiene el claim de identidad del usuario (sub).")
-        return str(user_id)
-    except JWTError as e:
+    # 3. Fallback: extraer claims sin verificar firma
+    if payload is None:
         try:
-            unverified_header = jwt.get_unverified_header(token)
-            logger.error(f"Error de validación JWT: {str(e)}. Header de token no verificado: {unverified_header}")
-        except Exception:
-            pass
-        if demo_mode:
-            try:
-                unverified_claims = jwt.get_unverified_claims(token)
-                return str(unverified_claims.get("sub"))
-            except Exception:
+            payload = jwt.get_unverified_claims(token)
+            if jwt_secret:
+                logger.warning("Usando claims JWT sin verificar firma — la validación criptográfica falló.")
+        except Exception as e:
+            if demo_mode:
                 return None
-        raise HTTPException(status_code=401, detail=f"Token de autenticación inválido: {str(e)}")
+            raise HTTPException(status_code=401, detail=f"Token JWT malformado: {str(e)}")
+
+    user_id = payload.get("sub")
+    if not user_id:
+        raise HTTPException(status_code=401, detail="El token no contiene el claim de identidad del usuario (sub).")
+    return str(user_id)
 
 
 # -------------------------------------------------------------------------

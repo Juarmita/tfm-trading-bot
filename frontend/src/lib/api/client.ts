@@ -11,7 +11,7 @@ export const apiClient = axios.create({
   headers: {
     "Content-Type": "application/json",
   },
-  timeout: 10000, // 10 segundos
+  timeout: 60000, // 60 segundos (Render free-tier puede tardar en arrancar tras inactividad)
 });
 
 // Interceptor para inyectar automáticamente el Bearer Token en llamadas directas al backend en producción
