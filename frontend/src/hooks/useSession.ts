@@ -45,6 +45,42 @@ export function useSession() {
     };
   }, []);
 
+  // Función para recargar la billetera manualmente desde Supabase
+  const refreshWallet = async () => {
+    if (!user) return;
+    const { data, error } = await supabase
+      .from("wallets")
+      .select("balance, currency")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    const walletRow = data as { balance: number; currency: string } | null;
+    if (!error && walletRow) {
+      setWallet({
+        balance: Number(walletRow.balance),
+        currency: walletRow.currency,
+      });
+    }
+  };
+
+  // Función para actualizar el saldo de la billetera (edición manual)
+  const updateWalletBalance = async (newBalance: number): Promise<boolean> => {
+    if (!user) return false;
+    const { error } = await supabase
+      .from("wallets")
+      .update({ balance: newBalance } as any)
+      .eq("user_id", user.id);
+
+    if (error) {
+      console.error("Error al actualizar saldo de wallet:", error);
+      return false;
+    }
+
+    // Actualizar el estado local inmediatamente
+    setWallet((prev) => prev ? { ...prev, balance: newBalance } : { balance: newBalance, currency: "USD" });
+    return true;
+  };
+
   // 3. Cargar billetera en tiempo real una vez que el usuario inicia sesión
   useEffect(() => {
     if (!user) {
@@ -103,6 +139,8 @@ export function useSession() {
     user,
     isLoading,
     refreshSession,
+    refreshWallet,
+    updateWalletBalance,
     wallet,
   };
 }

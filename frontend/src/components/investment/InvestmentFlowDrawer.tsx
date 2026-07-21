@@ -106,10 +106,16 @@ export default function InvestmentFlowDrawer({ isOpen, onClose }: InvestmentFlow
             </h3>
             <p className="text-xs text-slate-400">
               Saldo disponible en Wallet:{" "}
-              <span className="text-emerald-400 font-semibold">
-                ${wallet ? wallet.balance.toLocaleString("en-US", { minimumFractionDigits: 2 }) : "0.00"}{" "}
-                {wallet?.currency ?? "USD"}
-              </span>
+              {wallet ? (
+                <span className="text-emerald-400 font-semibold">
+                  ${wallet.balance.toLocaleString("en-US", { minimumFractionDigits: 2 })}{" "}
+                  {wallet.currency}
+                </span>
+              ) : (
+                <span className="text-amber-400 font-semibold animate-pulse">
+                  Cargando...
+                </span>
+              )}
             </p>
           </div>
           <button
@@ -241,10 +247,15 @@ export default function InvestmentFlowDrawer({ isOpen, onClose }: InvestmentFlow
               {/* Botón Ejecutar */}
               <button
                 type="submit"
-                className="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold py-4 rounded-xl transition shadow-lg shadow-emerald-500/10 hover:shadow-emerald-400/20 active:scale-[0.98] flex items-center justify-center gap-2"
+                disabled={!wallet}
+                className={`w-full font-bold py-4 rounded-xl transition shadow-lg flex items-center justify-center gap-2 ${
+                  wallet
+                    ? "bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-emerald-500/10 hover:shadow-emerald-400/20 active:scale-[0.98]"
+                    : "bg-slate-700 text-slate-400 cursor-not-allowed shadow-none"
+                }`}
               >
                 <Play size={16} fill="currentColor" />
-                <span>Ejecutar Análisis IA</span>
+                <span>{wallet ? "Ejecutar Análisis IA" : "Esperando datos de billetera..."}</span>
               </button>
             </form>
           )}

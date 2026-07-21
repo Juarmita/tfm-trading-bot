@@ -56,7 +56,16 @@ export function useInvestmentSession() {
     setError(null);
     setState("validating");
 
-    const maxBalance = wallet?.balance ?? 0;
+    // Protección: si la wallet aún no se ha cargado desde Supabase
+    if (!wallet) {
+      const walletError = "Cargando datos de billetera, por favor espera un momento e inténtalo de nuevo.";
+      setError(walletError);
+      setState("idle");
+      toast.error(walletError);
+      return;
+    }
+
+    const maxBalance = wallet.balance;
     const schema = createInvestmentSchema(maxBalance);
     const result = schema.safeParse({ amount, strategyType, symbol });
 

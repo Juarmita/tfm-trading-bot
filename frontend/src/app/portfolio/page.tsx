@@ -24,6 +24,9 @@ import {
   ArrowDownRight,
   ShieldAlert,
   HelpCircle,
+  Pencil,
+  Check,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -32,12 +35,15 @@ import { AxiosError } from "axios";
 
 export default function PortfolioPage() {
   const router = useRouter();
-  const { user, wallet, refreshSession } = useSession();
+  const { user, wallet, refreshSession, refreshWallet, updateWalletBalance } = useSession();
   const [portfolioData, setPortfolioData] = useState<PortfolioResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isResetting, setIsResetting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
+  const [isEditingBalance, setIsEditingBalance] = useState(false);
+  const [editBalanceValue, setEditBalanceValue] = useState("");
+  const [isSavingBalance, setIsSavingBalance] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -115,13 +121,16 @@ export default function PortfolioPage() {
           .in("id", sessionIds);
       }
 
-      await (supabase
-        .from("wallets") as any)
-        .update({ balance: 10000.00 })
-        .eq("user_id", user.id);
+      const success = await updateWalletBalance(10000.00);
+      if (!success) {
+        toast.error("Error al restablecer el saldo de la billetera.");
+        setIsResetting(false);
+        return;
+      }
 
       setPortfolioData(null);
       await refreshSession();
+      await refreshWallet();
       await fetchPortfolio();
       toast.success("¡Portafolio e historial restablecidos con éxito!");
     } catch (err) {
@@ -130,6 +139,37 @@ export default function PortfolioPage() {
     } finally {
       setIsResetting(false);
     }
+  };
+
+  // Editar saldo manualmente
+  const currentCash = wallet?.balance ?? 0;
+
+  const handleStartEditBalance = () => {
+    setEditBalanceValue(currentCash.toFixed(2));
+    setIsEditingBalance(true);
+  };
+
+  const handleCancelEditBalance = () => {
+    setIsEditingBalance(false);
+    setEditBalanceValue("");
+  };
+
+  const handleSaveBalance = async () => {
+    const newBalance = parseFloat(editBalanceValue);
+    if (isNaN(newBalance) || newBalance < 0) {
+      toast.error("Introduce un saldo válido (≥ $0).");
+      return;
+    }
+    setIsSavingBalance(true);
+    const success = await updateWalletBalance(newBalance);
+    if (success) {
+      toast.success(`Saldo actualizado a $${newBalance.toLocaleString("en-US", { minimumFractionDigits: 2 })} USD.`);
+      setIsEditingBalance(false);
+      await fetchPortfolio();
+    } else {
+      toast.error("Error al actualizar el saldo.");
+    }
+    setIsSavingBalance(false);
   };
 
   if (!mounted) {
@@ -292,11 +332,59 @@ export default function PortfolioPage() {
               </div>
 
               <div className="bg-slate-900/40 border border-slate-900 rounded-2xl p-6 relative overflow-hidden backdrop-blur-sm">
-                <span className="text-xs text-slate-400 font-medium">Efectivo Disponible</span>
-                <h3 className="text-2xl font-extrabold text-emerald-400 mt-1 font-mono">
-                  ${summary?.cash?.toLocaleString("en-US", { minimumFractionDigits: 2 }) ?? "0.00"}
-                </h3>
-                <p className="text-xs text-slate-500 mt-2">Liquidez lista para operar</p>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-slate-400 font-medium">Efectivo Disponible</span>
+                  {!isEditingBalance && (
+                    <button
+                      onClick={handleStartEditBalance}
+                      className="text-slate-500 hover:text-emerald-400 transition p-1 rounded-md hover:bg-slate-800/60"
+                      title="Editar saldo"
+                    >
+                      <Pencil size={13} />
+                    </button>
+                  )}
+                </div>
+                {isEditingBalance ? (
+                  <div className="mt-2 space-y-2">
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 font-mono text-sm">$</span>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={editBalanceValue}
+                        onChange={(e) => setEditBalanceValue(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === "Enter") handleSaveBalance(); if (e.key === "Escape") handleCancelEditBalance(); }}
+                        autoFocus
+                        className="w-full pl-7 pr-3 py-2 bg-slate-950 border border-slate-700 rounded-lg focus:outline-none focus:border-emerald-500 transition text-white font-mono text-sm"
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={handleSaveBalance}
+                        disabled={isSavingBalance}
+                        className="flex-1 flex items-center justify-center gap-1 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold py-1.5 rounded-lg text-xs transition active:scale-95 disabled:opacity-50"
+                      >
+                        <Check size={12} />
+                        <span>Guardar</span>
+                      </button>
+                      <button
+                        onClick={handleCancelEditBalance}
+                        className="flex-1 flex items-center justify-center gap-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-1.5 rounded-lg text-xs transition active:scale-95"
+                      >
+                        <X size={12} />
+                        <span>Cancelar</span>
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <h3 className="text-2xl font-extrabold text-emerald-400 mt-1 font-mono">
+                      ${summary?.cash?.toLocaleString("en-US", { minimumFractionDigits: 2 }) ?? "0.00"}
+                    </h3>
+                    <p className="text-xs text-slate-500 mt-2">Liquidez lista para operar</p>
+                  </>
+                )}
               </div>
 
               <div className="bg-slate-900/40 border border-slate-900 rounded-2xl p-6 relative overflow-hidden backdrop-blur-sm">
