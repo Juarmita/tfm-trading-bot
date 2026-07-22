@@ -1,5 +1,6 @@
 import logging
 import os
+from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any, Dict, List, Literal, Optional
 from uuid import UUID
@@ -48,15 +49,11 @@ def get_current_user_id(credentials: HTTPAuthorizationCredentials = Depends(secu
     # 1. Intentar verificación completa de firma + audiencia
     if jwt_secret:
         try:
-            payload = jwt.decode(
-                token, jwt_secret, algorithms=["HS256"], audience="authenticated"
-            )
+            payload = jwt.decode(token, jwt_secret, algorithms=["HS256"], audience="authenticated")
         except JWTError:
             # 2. Intentar sin validación de audiencia
             try:
-                payload = jwt.decode(
-                    token, jwt_secret, algorithms=["HS256"], options={"verify_aud": False}
-                )
+                payload = jwt.decode(token, jwt_secret, algorithms=["HS256"], options={"verify_aud": False})
             except JWTError as e:
                 logger.warning(f"Verificación de firma JWT falló (posible bug de python-jose[cryptography]): {e}")
 
@@ -87,7 +84,9 @@ class AnalyzeRequest(BaseModel):
     symbol: str = Field(..., description="Ticker bursátil a analizar (ej: AAPL, BTC-USD)")
     strategy_type: Literal["long_term", "short_term"] = Field(..., description="Estrategia: long_term o short_term")
     available_capital: Decimal = Field(..., description="Capital disponible asignable para operar", gt=0.0)
-    currency: Literal["USD", "EUR", "GBP", "CNY"] = Field("USD", description="Moneda de preferencia para la operación: USD, EUR, GBP, CNY")
+    currency: Literal["USD", "EUR", "GBP", "CNY"] = Field(
+        "USD", description="Moneda de preferencia para la operación: USD, EUR, GBP, CNY"
+    )
     max_iterations: int = Field(3, description="Número máximo de reintentos o iteraciones del motor", ge=1, le=10)
 
 
@@ -249,9 +248,7 @@ async def analyze_trading(
         raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:
         logger.error(f"Error en motor de IA: {e}")
-        raise HTTPException(
-            status_code=500, detail=f"Error en el motor de IA de procesamiento de mercado: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Error en el motor de IA de procesamiento de mercado: {str(e)}")
 
 
 @router.post("/execute")
@@ -296,9 +293,7 @@ async def execute_trading_plan(
         return {"status": "success", "session_id": str(decision_output.session_id), "reports": execution_reports}
     except Exception as e:
         logger.error(f"Error al ejecutar órdenes en firme: {e}")
-        raise HTTPException(
-            status_code=500, detail=f"Error al transmitir órdenes de mercado al broker: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Error al transmitir órdenes de mercado al broker: {str(e)}")
 
 
 # -------------------------------------------------------------------------
@@ -431,10 +426,14 @@ async def get_portfolio(
             symbols_data: Dict[str, Dict[str, Any]] = {}
 
             # Ordenar trades cronológicamente si se dispone de timestamp
-            sorted_trades = sorted(
-                db_trades,
-                key=lambda t: (t.get("ai_trading_sessions") or {}).get("created_at") or t.get("timestamp", ""),
-            ) if db_trades else []
+            sorted_trades = (
+                sorted(
+                    db_trades,
+                    key=lambda t: (t.get("ai_trading_sessions") or {}).get("created_at") or t.get("timestamp", ""),
+                )
+                if db_trades
+                else []
+            )
             for t in sorted_trades:
                 sym = t["symbol"].upper()
                 act = t["action"]
@@ -455,7 +454,12 @@ async def get_portfolio(
 
                 # Si el activo no cotiza en USD y el precio ejecutado guardado en DB estaba en la moneda local:
                 # Normalizamos price_usd y qty para que todo el cálculo de posición sea 100% consistente en USD.
-                if currency != "USD" and raw_price > 0 and amt > 0 and (raw_price < (amt / raw_qty) * 0.95 or abs((raw_price * raw_qty) - amt) < 1.0):
+                if (
+                    currency != "USD"
+                    and raw_price > 0
+                    and amt > 0
+                    and (raw_price < (amt / raw_qty) * 0.95 or abs((raw_price * raw_qty) - amt) < 1.0)
+                ):
                     price_usd = raw_price * usd_rate
                     qty = amt / price_usd if price_usd > 0 else raw_qty
                 else:
@@ -672,9 +676,7 @@ async def reset_portfolio(
                 session_ids = [s["id"] for s in user_sessions]
                 # 2. Borrar trades
                 for sid in session_ids:
-                    await client.delete(
-                        f"{supabase_url}/rest/v1/trades?session_id=eq.{sid}", headers=headers
-                    )
+                    await client.delete(f"{supabase_url}/rest/v1/trades?session_id=eq.{sid}", headers=headers)
 
                 # 3. Borrar sesiones de IA
                 await client.delete(
@@ -682,9 +684,7 @@ async def reset_portfolio(
                 )
 
             # 4. Restablecer el saldo de la billetera a 10000.00 USD
-            wallet_res = await client.get(
-                f"{supabase_url}/rest/v1/wallets?user_id=eq.{user_id_str}", headers=headers
-            )
+            wallet_res = await client.get(f"{supabase_url}/rest/v1/wallets?user_id=eq.{user_id_str}", headers=headers)
             wallet_res.raise_for_status()
             wallets = wallet_res.json()
 
@@ -726,9 +726,7 @@ async def get_user_trades(
     Obtiene la lista histórica de operaciones (trades) ejecutadas para el usuario especificado.
     """
     if current_user_id and str(user_id) != current_user_id:
-        raise HTTPException(
-            status_code=403, detail="No tienes autorización para acceder a los datos de este usuario."
-        )
+        raise HTTPException(status_code=403, detail="No tienes autorización para acceder a los datos de este usuario.")
 
     supabase_url = os.getenv("NEXT_PUBLIC_SUPABASE_URL")
     supabase_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
@@ -751,7 +749,12 @@ async def get_user_trades(
             formatted_trades = []
             for t in raw_trades:
                 session_info = t.get("ai_trading_sessions") or {}
-                created_at = session_info.get("created_at") or t.get("created_at") or t.get("timestamp") or datetime.now(timezone.utc).isoformat()
+                created_at = (
+                    session_info.get("created_at")
+                    or t.get("created_at")
+                    or t.get("timestamp")
+                    or datetime.now(timezone.utc).isoformat()
+                )
 
                 sym = t["symbol"].upper()
                 currency = "USD"
@@ -765,22 +768,29 @@ async def get_user_trades(
                 amt = float(t["amount_usd"])
                 raw_qty = float(t["quantity"])
 
-                if currency != "USD" and raw_price > 0 and amt > 0 and (raw_price < (amt / raw_qty) * 0.95 or abs((raw_price * raw_qty) - amt) < 1.0):
+                if (
+                    currency != "USD"
+                    and raw_price > 0
+                    and amt > 0
+                    and (raw_price < (amt / raw_qty) * 0.95 or abs((raw_price * raw_qty) - amt) < 1.0)
+                ):
                     price_usd = raw_price * usd_rate
                     qty_usd = amt / price_usd if price_usd > 0 else raw_qty
                 else:
                     price_usd = raw_price
                     qty_usd = raw_qty
 
-                formatted_trades.append({
-                    "id": t["id"],
-                    "symbol": sym,
-                    "action": t["action"],
-                    "quantity": round(qty_usd, 4),
-                    "price_executed": round(price_usd, 2),
-                    "amount_usd": round(amt, 2),
-                    "created_at": created_at,
-                })
+                formatted_trades.append(
+                    {
+                        "id": t["id"],
+                        "symbol": sym,
+                        "action": t["action"],
+                        "quantity": round(qty_usd, 4),
+                        "price_executed": round(price_usd, 2),
+                        "amount_usd": round(amt, 2),
+                        "created_at": created_at,
+                    }
+                )
 
             formatted_trades.sort(key=lambda x: x["created_at"], reverse=True)
             return formatted_trades

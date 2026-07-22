@@ -197,7 +197,11 @@ class AIEngineService:
             sym_returns = sym_close.pct_change().dropna()
             sp_returns = sp_close.pct_change().dropna()
 
-            if symbol.upper() != "^GSPC" and len(sym_returns) == len(sp_returns) and np.allclose(sym_returns.values, sp_returns.values):
+            if (
+                symbol.upper() != "^GSPC"
+                and len(sym_returns) == len(sp_returns)
+                and np.allclose(sym_returns.values, sp_returns.values)
+            ):
                 return 0.45
 
             aligned = pd.concat([sym_returns, sp_returns], axis=1, join="inner").dropna()
@@ -414,9 +418,11 @@ class AIEngineService:
         )
 
         pe_eval = (
-            "Atractiva / Infravalorada" if pe <= sector_pe * 1.15 else
-            "Prima de Crecimiento Aceptable" if pe <= sector_pe * 1.6 else
-            "Sobrevalorada (Riesgo alto de PER)"
+            "Atractiva / Infravalorada"
+            if pe <= sector_pe * 1.15
+            else "Prima de Crecimiento Aceptable"
+            if pe <= sector_pe * 1.6
+            else "Sobrevalorada (Riesgo alto de PER)"
         )
 
         reasoning_md = f"""# Decisión IA (ID: {session_id})
@@ -428,21 +434,21 @@ class AIEngineService:
 - **Proximidad a Límites**: {"Cerca de Máximos / Zona de Resistencia" if dist_52w_high_pct > -5.0 else "Cerca de Mínimos / Zona de Soporte" if dist_52w_low_pct < 10.0 else "Rango Intermedio de Acumulación"}
 
 ## 🏢 Fundamentales y Dividendos (PER y Valoración)
-- **Ratio Precio/Ganancias (PER)**: {fundamentals['pe']:.2f} (Media Sectorial [{sector}]: {fundamentals['sector_pe']:.2f})
+- **Ratio Precio/Ganancias (PER)**: {fundamentals["pe"]:.2f} (Media Sectorial [{sector}]: {fundamentals["sector_pe"]:.2f})
 - **Diagnóstico de Valoración**: {pe_eval}
-- **Rendimiento de Dividendos Anualizado**: {fundamentals['div_yield']:.2f}%
-- **Ratio Deuda / Patrimonio (Debt to Equity)**: {fundamentals['debt_equity']:.2f}%
+- **Rendimiento de Dividendos Anualizado**: {fundamentals["div_yield"]:.2f}%
+- **Ratio Deuda / Patrimonio (Debt to Equity)**: {fundamentals["debt_equity"]:.2f}%
 
 ## 📊 Factores Técnicos y Momentos
-- **SMA (20 / 50 / 200)**: {metrics['sma20']:.2f} / {metrics['sma50']:.2f} / {metrics['sma200']:.2f}
-- **RSI (14)**: {metrics['rsi14']:.2f} ({"Sobrecompra (>70)" if metrics['rsi14'] > 70 else "Sobreventa (<35)" if metrics['rsi14'] < 35 else "Neutral Alcista"})
-- **MACD (12, 26, 9)**: MACD {metrics['macd']:.4f} (Señal: {metrics['macd_signal']:.4f})
-- **ATR (14)**: {metrics['atr14']:.2f} | **Volumen Relativo**: {metrics['rel_vol']:.2f}x
+- **SMA (20 / 50 / 200)**: {metrics["sma20"]:.2f} / {metrics["sma50"]:.2f} / {metrics["sma200"]:.2f}
+- **RSI (14)**: {metrics["rsi14"]:.2f} ({"Sobrecompra (>70)" if metrics["rsi14"] > 70 else "Sobreventa (<35)" if metrics["rsi14"] < 35 else "Neutral Alcista"})
+- **MACD (12, 26, 9)**: MACD {metrics["macd"]:.4f} (Señal: {metrics["macd_signal"]:.4f})
+- **ATR (14)**: {metrics["atr14"]:.2f} | **Volumen Relativo**: {metrics["rel_vol"]:.2f}x
 
 ## ⚖️ Gestión de Riesgo
-- **Drawdown Máximo 90d**: {metrics['max_drawdown']:.2f}% ({"Excedido >25% - Asignación reducida en 50%" if drawdown_penalty else "Dentro de límites"})
-- **Concentración de Cartera**: {risk_factors['concentration_pct']:.2f}% ({"Excedida >30% - OPERACIÓN CANCELADA (HOLD)" if concentration_penalty else "Adecuada"})
-- **Correlación del Portafolio**: {risk_factors['correlation']:.2f} ({"Alta >0.70 - Tamaño reducido en 20%" if correlation_penalty else "Nivel de diversificación correcto"})
+- **Drawdown Máximo 90d**: {metrics["max_drawdown"]:.2f}% ({"Excedido >25% - Asignación reducida en 50%" if drawdown_penalty else "Dentro de límites"})
+- **Concentración de Cartera**: {risk_factors["concentration_pct"]:.2f}% ({"Excedida >30% - OPERACIÓN CANCELADA (HOLD)" if concentration_penalty else "Adecuada"})
+- **Correlación del Portafolio**: {risk_factors["correlation"]:.2f} ({"Alta >0.70 - Tamaño reducido en 20%" if correlation_penalty else "Nivel de diversificación correcto"})
 
 ## 🎯 Horizonte: {strategy_type.upper()}
 - **Decisión Final**: {decision}
@@ -513,7 +519,9 @@ class AIEngineService:
         try:
             df = await loop.run_in_executor(None, lambda: ticker.history(period="1y"))
         except Exception as e:
-            logger.warning(f"Excepción al consultar yfinance para {symbol_upper}: {e}. Ejecutando fallback de mercado...")
+            logger.warning(
+                f"Excepción al consultar yfinance para {symbol_upper}: {e}. Ejecutando fallback de mercado..."
+            )
 
         if df.empty or len(df) == 0:
             try:

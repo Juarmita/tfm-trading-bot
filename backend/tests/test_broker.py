@@ -30,7 +30,11 @@ async def test_demo_broker_order_execution_rejection():
     # Simular saldo insuficiente ($100) para una orden que requiere $300
     with patch.object(DemoBroker, "get_balance", return_value=100.0):
         order = OrderRequest(
-            user_id=user_id, symbol="AAPL", action="BUY", quantity=2.0, price_estimated=150.0  # Costo estimado $300
+            user_id=user_id,
+            symbol="AAPL",
+            action="BUY",
+            quantity=2.0,
+            price_estimated=150.0,  # Costo estimado $300
         )
 
         report = await broker.execute_order(order)
