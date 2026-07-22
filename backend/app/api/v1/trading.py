@@ -422,7 +422,7 @@ async def get_portfolio(
             cash = float(wallets[0]["balance"]) if wallets else 10000.0
 
             # 2. Obtener todos los trades asociados al usuario a través del JOIN inner con ai_trading_sessions
-            trades_url = f"{supabase_url}/rest/v1/trades?select=symbol,action,quantity,price_executed,amount_usd,created_at,ai_trading_sessions!inner(user_id)&ai_trading_sessions.user_id=eq.{user_id}"
+            trades_url = f"{supabase_url}/rest/v1/trades?select=symbol,action,quantity,price_executed,amount_usd,ai_trading_sessions!inner(user_id,created_at)&ai_trading_sessions.user_id=eq.{user_id}"
             trades_res = await client.get(trades_url, headers=headers)
             trades_res.raise_for_status()
             db_trades = trades_res.json()
@@ -431,14 +431,18 @@ async def get_portfolio(
             symbols_data: Dict[str, Dict[str, Any]] = {}
 
             # Ordenar trades cronológicamente si se dispone de timestamp
-            sorted_trades = sorted(db_trades, key=lambda t: t.get("created_at") or t.get("timestamp", "")) if db_trades else []
+            sorted_trades = sorted(
+                db_trades,
+                key=lambda t: (t.get("ai_trading_sessions") or {}).get("created_at") or t.get("timestamp", ""),
+            ) if db_trades else []
             for t in sorted_trades:
                 sym = t["symbol"].upper()
                 act = t["action"]
                 raw_qty = float(t["quantity"])
                 raw_price = float(t["price_executed"])
                 amt = float(t["amount_usd"])
-                trade_created_at = t.get("created_at") or t.get("timestamp") or ""
+                session_info = t.get("ai_trading_sessions") or {}
+                trade_created_at = session_info.get("created_at") or t.get("created_at") or t.get("timestamp") or ""
 
                 # Detectar moneda del activo para conversión limpia
                 currency = "USD"
