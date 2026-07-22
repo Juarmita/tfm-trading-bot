@@ -388,34 +388,43 @@ async def get_portfolio(
             trades_res.raise_for_status()
             db_trades = trades_res.json()
 
-            # 3. Calcular posiciones agrupando operaciones
-            # Estructura: { symbol: { qty_bought, cost_bought, qty_sold, revenue_sold } }
-            symbols_data = {}
-            for t in db_trades:
+            # 3. Calcular posiciones agrupando operaciones con Coste Medio Ponderado Dinámico (Moving Average Cost Basis)
+            # Estructura: { symbol: { current_qty, total_cost_basis } }
+            symbols_data: Dict[str, Dict[str, float]] = {}
+
+            # Ordenar trades cronológicamente si se dispone de timestamp
+            sorted_trades = sorted(db_trades, key=lambda t: t.get("timestamp", "")) if db_trades else []
+            for t in sorted_trades:
                 sym = t["symbol"].upper()
                 act = t["action"]
                 qty = float(t["quantity"])
                 amt = float(t["amount_usd"])
 
                 if sym not in symbols_data:
-                    symbols_data[sym] = {"qty_bought": 0.0, "cost_bought": 0.0, "qty_sold": 0.0, "revenue_sold": 0.0}
+                    symbols_data[sym] = {"current_qty": 0.0, "total_cost_basis": 0.0}
 
                 if act == "BUY":
-                    symbols_data[sym]["qty_bought"] += qty
-                    symbols_data[sym]["cost_bought"] += amt
+                    symbols_data[sym]["current_qty"] += qty
+                    symbols_data[sym]["total_cost_basis"] += amt
                 elif act == "SELL":
-                    symbols_data[sym]["qty_sold"] += qty
-                    symbols_data[sym]["revenue_sold"] += amt
+                    cur_qty = symbols_data[sym]["current_qty"]
+                    cur_cost = symbols_data[sym]["total_cost_basis"]
+                    if cur_qty > 0:
+                        avg_unit_cost = cur_cost / cur_qty
+                        sold_cost = avg_unit_cost * qty
+                        symbols_data[sym]["total_cost_basis"] = max(0.0, cur_cost - sold_cost)
+                        symbols_data[sym]["current_qty"] = max(0.0, cur_qty - qty)
 
             positions = []
             news_list = []
 
             for sym, data in symbols_data.items():
-                remaining_qty = data["qty_bought"] - data["qty_sold"]
+                remaining_qty = data["current_qty"]
+                cost_basis = data["total_cost_basis"]
+
                 # Solo procesamos si tiene acciones activas en portafolio
                 if remaining_qty > 0.0001:
-                    # Precio promedio de compra
-                    avg_price = data["cost_bought"] / data["qty_bought"] if data["qty_bought"] > 0 else 0.0
+                    avg_price = cost_basis / remaining_qty if remaining_qty > 0 else 0.0
 
                     # Obtener cotización actual en vivo de Yahoo Finance
                     current_price = avg_price
@@ -436,7 +445,6 @@ async def get_portfolio(
                     except Exception as e:
                         logger.warning(f"No se pudo obtener el precio actual para {sym}: {e}")
 
-                    cost_basis = remaining_qty * avg_price
                     market_value = remaining_qty * current_price
                     profit_loss = market_value - cost_basis
                     profit_loss_pct = (profit_loss / cost_basis) * 100.0 if cost_basis > 0 else 0.0
@@ -543,4 +551,101 @@ async def get_portfolio(
             logger.error(f"Error al calcular portafolio para {user_id}: {str(e)}")
             raise HTTPException(
                 status_code=500, detail=f"Error interno del servidor al obtener el portafolio: {str(e)}"
+            )
+
+
+# -------------------------------------------------------------------------
+# RESTABLECER PORTAFOLIO Y SALDO
+# -------------------------------------------------------------------------
+
+
+class ResetRequest(BaseModel):
+    user_id: UUID = Field(..., description="Identificador único del usuario")
+
+
+@router.post("/reset")
+async def reset_portfolio(
+    request: ResetRequest,
+    current_user_id: Optional[str] = Depends(get_current_user_id),
+) -> Dict[str, Any]:
+    """
+    Restablece completamente el portafolio del usuario: elimina todas las sesiones de IA,
+    todas las operaciones (trades) y reinicia el saldo de la billetera a $10,000.00 USD.
+    """
+    user_id_str = str(request.user_id)
+    if current_user_id and user_id_str != current_user_id:
+        raise HTTPException(
+            status_code=403, detail="No tienes autorización para restablecer el portafolio de este usuario."
+        )
+
+    supabase_url = os.getenv("NEXT_PUBLIC_SUPABASE_URL")
+    supabase_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+
+    if not supabase_url or not supabase_key:
+        return {
+            "status": "success",
+            "message": "Portafolio en modo desarrollo restablecido a $10,000.00 USD.",
+            "balance": 10000.00,
+        }
+
+    headers = {
+        "apikey": supabase_key,
+        "Authorization": f"Bearer {supabase_key}",
+        "Content-Type": "application/json",
+    }
+
+    async with httpx.AsyncClient() as client:
+        try:
+            # 1. Obtener los IDs de las sesiones del usuario
+            sessions_url = f"{supabase_url}/rest/v1/ai_trading_sessions?user_id=eq.{user_id_str}&select=id"
+            sessions_res = await client.get(sessions_url, headers=headers)
+            sessions_res.raise_for_status()
+            user_sessions = sessions_res.json()
+
+            if user_sessions:
+                session_ids = [s["id"] for s in user_sessions]
+                # 2. Borrar trades
+                for sid in session_ids:
+                    await client.delete(
+                        f"{supabase_url}/rest/v1/trades?session_id=eq.{sid}", headers=headers
+                    )
+
+                # 3. Borrar sesiones de IA
+                await client.delete(
+                    f"{supabase_url}/rest/v1/ai_trading_sessions?user_id=eq.{user_id_str}", headers=headers
+                )
+
+            # 4. Restablecer el saldo de la billetera a 10000.00 USD
+            wallet_res = await client.get(
+                f"{supabase_url}/rest/v1/wallets?user_id=eq.{user_id_str}", headers=headers
+            )
+            wallet_res.raise_for_status()
+            wallets = wallet_res.json()
+
+            if wallets:
+                w_id = wallets[0]["id"]
+                patch_res = await client.patch(
+                    f"{supabase_url}/rest/v1/wallets?id=eq.{w_id}",
+                    json={"balance": 10000.00},
+                    headers=headers,
+                )
+                patch_res.raise_for_status()
+            else:
+                post_res = await client.post(
+                    f"{supabase_url}/rest/v1/wallets",
+                    json={"user_id": user_id_str, "balance": 10000.00, "currency": "USD"},
+                    headers=headers,
+                )
+                post_res.raise_for_status()
+
+            logger.info(f"Portafolio y billetera del usuario {user_id_str} restablecidos con éxito a $10,000.00 USD.")
+            return {
+                "status": "success",
+                "message": "Portafolio e historial de trades restablecidos con éxito.",
+                "balance": 10000.00,
+            }
+        except Exception as e:
+            logger.error(f"Error al restablecer portafolio para {user_id_str}: {e}")
+            raise HTTPException(
+                status_code=500, detail=f"Error interno al restablecer el portafolio en base de datos: {str(e)}"
             )

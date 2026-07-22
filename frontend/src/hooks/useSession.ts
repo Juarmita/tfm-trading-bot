@@ -64,19 +64,32 @@ export function useSession() {
   };
 
   // Función para actualizar el saldo de la billetera (edición manual / reset)
-  // Usa upsert para crear la fila si no existe aún en Supabase
+  // Intenta UPDATE primero; si la fila no existe, hace INSERT (compatible con RLS)
   const updateWalletBalance = async (newBalance: number): Promise<boolean> => {
     if (!user) return false;
-    const { error } = await (supabase
-      .from("wallets") as any)
-      .upsert(
-        { user_id: user.id, balance: newBalance, currency: "USD" },
-        { onConflict: "user_id" }
-      );
 
-    if (error) {
-      console.error("Error al actualizar saldo de wallet:", error);
+    // 1. Intentar actualizar la fila existente
+    const { data: updateData, error: updateError } = await (supabase
+      .from("wallets") as any)
+      .update({ balance: newBalance })
+      .eq("user_id", user.id)
+      .select();
+
+    if (updateError) {
+      console.error("Error al actualizar saldo de wallet:", updateError);
       return false;
+    }
+
+    // 2. Si no se actualizó ninguna fila, crear la wallet
+    if (!updateData || updateData.length === 0) {
+      const { error: insertError } = await (supabase
+        .from("wallets") as any)
+        .insert({ user_id: user.id, balance: newBalance, currency: "USD" });
+
+      if (insertError) {
+        console.error("Error al crear wallet:", insertError);
+        return false;
+      }
     }
 
     // Actualizar el estado local inmediatamente

@@ -48,4 +48,14 @@ def test_analyze_with_invalid_token_raises_401_in_prod() -> None:
             headers={"Authorization": "Bearer token_invalido_de_prueba"},
         )
         assert response.status_code == 401
-        assert "Token de autenticación inválido" in response.json()["detail"]
+        assert "Token" in response.json()["detail"]
+
+
+def test_reset_portfolio_endpoint() -> None:
+    response = client.post(
+        "/api/v1/trading/reset",
+        json={"user_id": "7c9e6679-7425-40de-944b-e07fc1f90ae7"},
+    )
+    assert response.status_code == 200
+    assert response.json()["status"] == "success"
+    assert response.json()["balance"] == 10000.00

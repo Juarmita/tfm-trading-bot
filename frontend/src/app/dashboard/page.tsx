@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useSession } from "@/hooks/useSession";
 import { supabase } from "@/lib/supabase/client";
+import { apiClient } from "@/lib/api/client";
 import { toast } from "sonner";
 import {
   TrendingUp,
@@ -167,6 +168,10 @@ export default function DashboardPage() {
 
     setIsResetting(true);
     try {
+      // 1. Invocar endpoint seguro en backend para limpiar BD y reiniciar wallet a $10,000
+      await apiClient.post("/trading/reset", { user_id: user.id });
+
+      // 2. Limpieza de cliente Supabase como resguardo
       const { data: userSessions } = await supabase
         .from("ai_trading_sessions")
         .select("id")
@@ -174,29 +179,16 @@ export default function DashboardPage() {
 
       if (userSessions && userSessions.length > 0) {
         const sessionIds = userSessions.map((s: { id: string }) => s.id);
-        
-        await supabase
-          .from("trades")
-          .delete()
-          .in("session_id", sessionIds);
-
-        await supabase
-          .from("ai_trading_sessions")
-          .delete()
-          .in("id", sessionIds);
+        await supabase.from("trades").delete().in("session_id", sessionIds);
+        await supabase.from("ai_trading_sessions").delete().in("id", sessionIds);
       }
 
-      const success = await updateWalletBalance(10000.00);
-      if (!success) {
-        toast.error("Error al restablecer el saldo de la billetera.");
-        setIsResetting(false);
-        return;
-      }
+      await updateWalletBalance(10000.00);
 
       setTrades([]);
       await refreshSession();
       await refreshWallet();
-      toast.success("¡Portafolio e historial restablecidos con éxito!");
+      toast.success("¡Portafolio e historial restablecidos con éxito a $10,000.00 USD!");
     } catch (err) {
       console.error("Error al resetear portafolio:", err);
       toast.error("Error al restablecer los datos del portafolio.");
