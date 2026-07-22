@@ -48,6 +48,8 @@ type DatabaseTrade = {
   created_at: string;
 };
 
+type TimeFrame = "1D" | "1W" | "1M" | "1Y";
+
 export default function DashboardPage() {
   const { user, wallet, refreshSession, refreshWallet, updateWalletBalance } = useSession();
   const router = useRouter();
@@ -59,6 +61,7 @@ export default function DashboardPage() {
   const [isEditingBalance, setIsEditingBalance] = useState(false);
   const [editBalanceValue, setEditBalanceValue] = useState("");
   const [isSavingBalance, setIsSavingBalance] = useState(false);
+  const [timeframe, setTimeframe] = useState<TimeFrame>("1M");
 
   // 1. Evitar Hydration Mismatches en Next.js
   useEffect(() => {
@@ -261,9 +264,6 @@ export default function DashboardPage() {
       winRate = 0.0;
     }
   }
-
-  type TimeFrame = "1D" | "1W" | "1M" | "1Y";
-  const [timeframe, setTimeframe] = useState<TimeFrame>("1M");
 
   const generateChartData = () => {
     const pct = Number(profitLossPercent.toFixed(2));
