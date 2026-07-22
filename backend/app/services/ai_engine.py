@@ -273,38 +273,71 @@ class AIEngineService:
             factors_used = ["dividend_yield", "momentum", "valuation"]
             weights = {"dividend_yield": 0.3, "momentum": 0.4, "valuation": 0.3}
 
-            if div_yield > 2.0:
-                score += 3
+            # 1. Tendencia de Mercado y Estructura (máx 4 pts)
+            if metrics["price"] > metrics["sma200"]:
+                score += 2
             if metrics["sma50"] > metrics["sma200"]:
-                score += 4
-            if pe < sector_pe:
-                score += 3
+                score += 2
 
-            if score >= 7:
+            # 2. Valoración y Fundamentales (máx 3 pts)
+            if pe > 0 and pe <= sector_pe * 1.3:
+                score += 2
+            elif pe <= 0:
+                score += 1
+
+            if debt_equity < 120.0:
+                score += 1
+
+            # 3. Dividendos y Salud de Entrada (máx 3 pts)
+            if div_yield >= 0.5:
+                score += 2
+            elif metrics["rsi14"] >= 40.0 and metrics["price"] > metrics["sma50"]:
+                # Acción de alto crecimiento en tendencia técnica positiva
+                score += 2
+
+            if 35.0 <= metrics["rsi14"] <= 68.0:
+                score += 1
+
+            # Umbrales ajustados para decisiones realistas de Largo Plazo
+            if score >= 5:
                 decision = "BUY"
-            elif score <= 3:
+            elif score <= 2:
                 decision = "SELL"
+            else:
+                decision = "HOLD"
 
         else:  # short_term
             factors_used = ["rsi_oscillator", "relative_volume", "macd_momentum"]
             weights = {"rsi_oscillator": 0.4, "relative_volume": 0.3, "macd_momentum": 0.3}
 
-            if metrics["rsi14"] < 30:
-                score += 4
-            elif metrics["rsi14"] > 70:
+            # 1. Oscilador RSI (máx 4 pts)
+            if metrics["rsi14"] < 35.0:
+                score += 4  # Rebote técnico en sobreventa
+            elif 35.0 <= metrics["rsi14"] <= 60.0:
+                score += 3  # Momentum alcista en zona limpia
+            elif metrics["rsi14"] > 72.0:
                 score = 0
                 decision = "SELL"
 
-            if metrics["rel_vol"] > 1.5:
-                score += 3
+            # 2. Tendencia de Corto Plazo (máx 3 pts)
+            if metrics["price"] > metrics["sma20"]:
+                score += 2
+            if metrics["ema12"] > metrics["ema26"]:
+                score += 1
+
+            # 3. MACD y Volumen Relativo (máx 3 pts)
             if metrics["macd"] > metrics["macd_signal"]:
-                score += 3
+                score += 2
+            if metrics["rel_vol"] >= 0.8:
+                score += 1
 
             if decision != "SELL":
-                if score >= 6:
+                if score >= 5:
                     decision = "BUY"
                 elif score <= 2:
                     decision = "SELL"
+                else:
+                    decision = "HOLD"
 
         # Aplicar restricciones de Gestión de Riesgo sobre la decisión BUY
         final_capital = float(available_capital)
