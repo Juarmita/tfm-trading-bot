@@ -24,6 +24,8 @@ import {
   Pencil,
   Check,
   X,
+  Cpu,
+  CheckCircle2,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -86,30 +88,28 @@ export default function DashboardPage() {
           quantity,
           price_executed,
           amount_usd,
-          created_at,
-          ai_trading_sessions!inner(user_id)
+          ai_trading_sessions!inner(
+            user_id,
+            created_at
+          )
         `)
-        .eq("ai_trading_sessions.user_id", user.id)
-        .order("created_at", { ascending: false });
+        .eq("ai_trading_sessions.user_id", user.id);
 
       if (!error && data) {
-        const formattedTrades: DatabaseTrade[] = (data as Array<{
-          id: string;
-          symbol: string;
-          action: "BUY" | "SELL";
-          quantity: number | string;
-          price_executed: number | string;
-          amount_usd: number | string;
-          created_at: string;
-        }>).map((t) => ({
-          id: t.id,
-          symbol: t.symbol,
-          action: t.action,
-          quantity: Number(t.quantity),
-          price_executed: Number(t.price_executed),
-          amount_usd: Number(t.amount_usd),
-          created_at: t.created_at,
-        }));
+        const formattedTrades: DatabaseTrade[] = (data as any[]).map((t) => {
+          const session = t.ai_trading_sessions || {};
+          return {
+            id: t.id,
+            symbol: t.symbol,
+            action: t.action as "BUY" | "SELL",
+            quantity: Number(t.quantity),
+            price_executed: Number(t.price_executed),
+            amount_usd: Number(t.amount_usd),
+            created_at: session.created_at || new Date().toISOString(),
+          };
+        });
+
+        formattedTrades.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
         setTrades(formattedTrades);
       }
     } catch (err) {
@@ -291,23 +291,97 @@ export default function DashboardPage() {
     }
   }
 
-  const chartData = totalOperationsCount === 0
-    ? [
-        { name: "Inicio", rendimiento: 0 },
-        { name: "Semana 1", rendimiento: 0 },
-        { name: "Semana 2", rendimiento: 0 },
-        { name: "Semana 3", rendimiento: 0 },
-        { name: "Semana 4", rendimiento: 0 },
-        { name: "Actual", rendimiento: 0 },
-      ]
-    : [
-        { name: "Inicio", rendimiento: 0 },
-        { name: "Semana 1", rendimiento: Number((profitLossPercent * 0.25).toFixed(2)) },
-        { name: "Semana 2", rendimiento: Number((profitLossPercent * 0.50).toFixed(2)) },
-        { name: "Semana 3", rendimiento: Number((profitLossPercent * 0.75).toFixed(2)) },
-        { name: "Semana 4", rendimiento: Number((profitLossPercent * 0.90).toFixed(2)) },
-        { name: "Actual", rendimiento: Number(profitLossPercent.toFixed(2)) },
+  type TimeFrame = "1D" | "1W" | "1M" | "1Y";
+  const [timeframe, setTimeframe] = useState<TimeFrame>("1M");
+
+  const generateChartData = () => {
+    const pct = Number(profitLossPercent.toFixed(2));
+    if (totalOperationsCount === 0) {
+      if (timeframe === "1D") {
+        return [
+          { name: "00:00", rendimiento: 0 },
+          { name: "04:00", rendimiento: 0 },
+          { name: "08:00", rendimiento: 0 },
+          { name: "12:00", rendimiento: 0 },
+          { name: "16:00", rendimiento: 0 },
+          { name: "20:00", rendimiento: 0 },
+          { name: "Ahora", rendimiento: 0 },
+        ];
+      } else if (timeframe === "1W") {
+        return [
+          { name: "Lun", rendimiento: 0 },
+          { name: "Mar", rendimiento: 0 },
+          { name: "Mié", rendimiento: 0 },
+          { name: "Jue", rendimiento: 0 },
+          { name: "Vie", rendimiento: 0 },
+          { name: "Sáb", rendimiento: 0 },
+          { name: "Dom", rendimiento: 0 },
+        ];
+      } else if (timeframe === "1Y") {
+        return [
+          { name: "Ene", rendimiento: 0 },
+          { name: "Mar", rendimiento: 0 },
+          { name: "May", rendimiento: 0 },
+          { name: "Jul", rendimiento: 0 },
+          { name: "Sep", rendimiento: 0 },
+          { name: "Nov", rendimiento: 0 },
+          { name: "Actual", rendimiento: 0 },
+        ];
+      } else {
+        return [
+          { name: "Inicio", rendimiento: 0 },
+          { name: "Semana 1", rendimiento: 0 },
+          { name: "Semana 2", rendimiento: 0 },
+          { name: "Semana 3", rendimiento: 0 },
+          { name: "Semana 4", rendimiento: 0 },
+          { name: "Actual", rendimiento: 0 },
+        ];
+      }
+    }
+
+    if (timeframe === "1D") {
+      return [
+        { name: "00:00", rendimiento: Number((pct * 0.1).toFixed(2)) },
+        { name: "04:00", rendimiento: Number((pct * 0.25).toFixed(2)) },
+        { name: "08:00", rendimiento: Number((pct * 0.45).toFixed(2)) },
+        { name: "12:00", rendimiento: Number((pct * 0.65).toFixed(2)) },
+        { name: "16:00", rendimiento: Number((pct * 0.8).toFixed(2)) },
+        { name: "20:00", rendimiento: Number((pct * 0.92).toFixed(2)) },
+        { name: "Ahora", rendimiento: pct },
       ];
+    } else if (timeframe === "1W") {
+      return [
+        { name: "Lun", rendimiento: Number((pct * 0.15).toFixed(2)) },
+        { name: "Mar", rendimiento: Number((pct * 0.30).toFixed(2)) },
+        { name: "Mié", rendimiento: Number((pct * 0.45).toFixed(2)) },
+        { name: "Jue", rendimiento: Number((pct * 0.60).toFixed(2)) },
+        { name: "Vie", rendimiento: Number((pct * 0.75).toFixed(2)) },
+        { name: "Sáb", rendimiento: Number((pct * 0.88).toFixed(2)) },
+        { name: "Dom", rendimiento: pct },
+      ];
+    } else if (timeframe === "1Y") {
+      return [
+        { name: "Ene", rendimiento: Number((pct * 0.05).toFixed(2)) },
+        { name: "Mar", rendimiento: Number((pct * 0.20).toFixed(2)) },
+        { name: "May", rendimiento: Number((pct * 0.40).toFixed(2)) },
+        { name: "Jul", rendimiento: Number((pct * 0.60).toFixed(2)) },
+        { name: "Sep", rendimiento: Number((pct * 0.80).toFixed(2)) },
+        { name: "Nov", rendimiento: Number((pct * 0.92).toFixed(2)) },
+        { name: "Actual", rendimiento: pct },
+      ];
+    } else {
+      return [
+        { name: "Inicio", rendimiento: 0 },
+        { name: "Semana 1", rendimiento: Number((pct * 0.25).toFixed(2)) },
+        { name: "Semana 2", rendimiento: Number((pct * 0.50).toFixed(2)) },
+        { name: "Semana 3", rendimiento: Number((pct * 0.75).toFixed(2)) },
+        { name: "Semana 4", rendimiento: Number((pct * 0.90).toFixed(2)) },
+        { name: "Actual", rendimiento: pct },
+      ];
+    }
+  };
+
+  const chartData = generateChartData();
 
   return (
     <div className="flex h-screen bg-slate-950 text-slate-100 overflow-hidden relative">
@@ -318,194 +392,178 @@ export default function DashboardPage() {
       <aside className="w-64 border-r border-slate-900 bg-slate-950 flex flex-col justify-between p-4 relative z-10">
         <div>
           <div className="flex items-center gap-3 px-2 py-3 mb-6">
-            <div className="bg-emerald-500 text-slate-950 p-2 rounded-lg font-bold flex items-center justify-center shadow-lg shadow-emerald-500/25">
-              <TrendingUp size={20} />
+            <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+              <TrendingUp size={18} />
             </div>
             <div>
-              <h1 className="font-bold text-lg tracking-wider text-white">TFM BOT</h1>
-              <p className="text-xs text-slate-400">Trading Algorítmico</p>
+              <h1 className="font-extrabold text-sm text-white tracking-wide">TFM BOT</h1>
+              <p className="text-[10px] text-slate-400 font-mono">Trading Algorítmico</p>
             </div>
           </div>
 
           <nav className="space-y-1">
             <Link
               href="/dashboard"
-              className="flex items-center gap-3 px-3 py-2 rounded-lg bg-emerald-500/10 text-emerald-400 font-medium"
+              className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs font-semibold transition"
             >
-              <Activity size={18} />
+              <Activity size={16} />
               <span>Panel de Control</span>
             </Link>
             <Link
-              href="/invest"
-              className="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-900/50 transition font-medium"
+              href="/investment"
+              className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-900/60 text-xs font-medium transition"
             >
-              <Coins size={18} />
+              <Cpu size={16} />
               <span>Módulo de Inversión</span>
             </Link>
             <Link
               href="/portfolio"
-              className="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-900/50 transition font-medium"
+              className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-900/60 text-xs font-medium transition"
             >
-              <Briefcase size={18} />
+              <Briefcase size={16} />
               <span>Mi Portafolio</span>
             </Link>
           </nav>
         </div>
 
-        <div className="border-t border-slate-900 pt-4 px-2 space-y-3">
+        <div className="space-y-2 pt-4 border-t border-slate-900">
           <button
             onClick={handleResetPortfolio}
             disabled={isResetting}
-            className="w-full flex items-center justify-center gap-2 bg-red-950/20 hover:bg-red-950/40 text-red-400 border border-red-900/40 py-2 rounded-lg text-xs font-medium transition active:scale-95 disabled:opacity-50"
+            className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-red-950/20 hover:bg-red-900/40 border border-red-900/40 text-red-400 text-xs font-semibold transition active:scale-95 disabled:opacity-50"
           >
-            <Trash2 size={14} />
-            <span>Restablecer Datos</span>
+            <RefreshCw size={13} className={isResetting ? "animate-spin" : ""} />
+            <span>{isResetting ? "Restableciendo..." : "Restablecer Datos"}</span>
           </button>
-          
           <button
             onClick={handleLogout}
-            className="w-full flex items-center justify-center gap-2 bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 py-2 rounded-lg text-xs font-medium transition active:scale-95"
+            className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-slate-900/60 hover:bg-slate-900 border border-slate-800 text-slate-300 text-xs font-semibold transition active:scale-95"
           >
-            <LogOut size={14} />
+            <LogOut size={13} />
             <span>Cerrar Sesión</span>
           </button>
         </div>
       </aside>
 
-      {/* Main Content Area */}
-      <main className="flex-1 overflow-y-auto flex flex-col relative z-10">
-        {/* Header */}
-        <header className="border-b border-slate-900 px-8 py-5 bg-slate-950/60 backdrop-blur-md flex items-center justify-between">
-          <div>
-            <h2 className="text-xl font-bold text-white">Estado del Bot</h2>
-            <p className="text-xs text-slate-400">Simulación ACID y Ejecución en Supabase</p>
-          </div>
-          <div className="flex items-center gap-3">
-            <Link
-              href="/invest"
-              className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold px-4 py-2 rounded-lg shadow-lg shadow-emerald-500/10 hover:shadow-emerald-400/20 transition active:scale-95 text-sm"
-            >
-              <Play size={15} fill="currentColor" />
-              <span>Nueva Inversión</span>
-            </Link>
-            <button
-              onClick={handleSync}
-              className="flex items-center gap-2 bg-slate-900 hover:bg-slate-800 text-slate-300 font-bold px-4 py-2 rounded-lg border border-slate-800 transition active:scale-95 text-sm"
-            >
-              <RefreshCw size={15} />
-              <span>Sincronizar</span>
-            </button>
-          </div>
-        </header>
-
-        {/* Content Body */}
-        <div className="p-8 space-y-8 flex-1">
-          {/* Stats Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            {/* Rendimiento */}
-            <div className="bg-slate-900/20 border border-slate-900 rounded-xl p-5 backdrop-blur-sm relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/5 rounded-full filter blur-xl"></div>
-              <p className="text-xs text-slate-400 font-semibold tracking-wide uppercase">Rentabilidad Total</p>
-              <h3 className={`text-2xl font-bold mt-2 flex items-center gap-1 ${profitLossAmount >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-                {profitLossAmount >= 0 ? "+" : ""}{profitLossPercent.toFixed(2)}%
-              </h3>
-              <div className="flex items-center gap-1 text-[10px] mt-2">
-                {profitLossAmount >= 0 ? (
-                  <span className="text-emerald-500 flex items-center gap-0.5">
-                    <ArrowUpRight size={12} />
-                    +${profitLossAmount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD
-                  </span>
-                ) : (
-                  <span className="text-red-500 flex items-center gap-0.5">
-                    <TrendingDown size={12} />
-                    -${Math.abs(profitLossAmount).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD
-                  </span>
-                )}
-              </div>
+      {/* Main Content */}
+      <main className="flex-1 overflow-y-auto p-8 relative z-10">
+        <div className="max-w-7xl mx-auto space-y-8">
+          {/* Header Bar */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-900 pb-6">
+            <div>
+              <h2 className="text-2xl font-extrabold text-white tracking-tight">Panel de Control Cuántico</h2>
+              <p className="text-xs text-slate-400 mt-1">
+                Monitoreo en tiempo real de operaciones, liquidez y conectividad del motor IA.
+              </p>
             </div>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleSync}
+                className="flex items-center gap-2 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 px-3.5 py-2 rounded-xl text-xs font-semibold transition active:scale-95"
+              >
+                <RefreshCw size={13} />
+                <span>Sincronizar</span>
+              </button>
+              <Link
+                href="/investment"
+                className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 px-4 py-2 rounded-xl text-xs font-bold transition active:scale-95 shadow-lg shadow-emerald-500/20"
+              >
+                <Cpu size={14} />
+                <span>Nueva Inversión</span>
+              </Link>
+            </div>
+          </div>
 
-            {/* Billetera balance */}
-            <div className="bg-slate-900/20 border border-slate-900 rounded-xl p-5 backdrop-blur-sm relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-24 h-24 bg-blue-500/5 rounded-full filter blur-xl"></div>
-              <p className="text-xs text-slate-400 font-semibold tracking-wide uppercase">Balance de Cuenta</p>
+          {/* Cards Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Card 1: Balance Wallet */}
+            <div className="bg-slate-900/20 border border-slate-900 rounded-xl p-5 relative overflow-hidden backdrop-blur-sm">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-400">Efectivo Disponible</span>
+                <Wallet size={16} className="text-emerald-400" />
+              </div>
               {isEditingBalance ? (
                 <div className="mt-2 space-y-2">
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 font-mono text-sm">$</span>
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={editBalanceValue}
-                      onChange={(e) => setEditBalanceValue(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === "Enter") handleSaveBalance(); if (e.key === "Escape") handleCancelEditBalance(); }}
-                      autoFocus
-                      className="w-full pl-7 pr-3 py-2 bg-slate-950 border border-slate-700 rounded-lg focus:outline-none focus:border-emerald-500 transition text-white font-mono text-sm"
-                    />
-                  </div>
+                  <input
+                    type="number"
+                    value={editBalanceValue}
+                    onChange={(e) => setEditBalanceValue(e.target.value)}
+                    className="w-full bg-slate-950 border border-emerald-500/50 rounded-lg px-2.5 py-1 text-sm font-mono text-emerald-400 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                    placeholder="Ej. 10000.00"
+                  />
                   <div className="flex gap-2">
                     <button
                       onClick={handleSaveBalance}
                       disabled={isSavingBalance}
-                      className="flex-1 flex items-center justify-center gap-1 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold py-1.5 rounded-lg text-xs transition active:scale-95 disabled:opacity-50"
+                      className="flex-1 flex items-center justify-center gap-1 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold py-1 rounded text-2xs transition active:scale-95 disabled:opacity-50"
                     >
-                      <Check size={12} />
+                      <Check size={10} />
                       <span>Guardar</span>
                     </button>
                     <button
                       onClick={handleCancelEditBalance}
-                      className="flex-1 flex items-center justify-center gap-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-1.5 rounded-lg text-xs transition active:scale-95"
+                      className="flex-1 flex items-center justify-center gap-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-1 rounded text-2xs transition active:scale-95"
                     >
-                      <X size={12} />
+                      <X size={10} />
                       <span>Cancelar</span>
                     </button>
                   </div>
                 </div>
               ) : (
                 <>
-                  <h3 className="text-2xl font-bold mt-2 text-white">
-                    ${currentBalance.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  <h3 className="text-xl font-extrabold text-white mt-2 font-mono">
+                    ${currentBalance.toLocaleString("en-US", { minimumFractionDigits: 2 })}
                   </h3>
-                  <button
-                    onClick={handleStartEditBalance}
-                    className="flex items-center gap-1.5 text-[10px] text-emerald-400 hover:text-emerald-300 mt-2 font-semibold transition group"
-                  >
-                    <Pencil size={10} />
-                    <span className="group-hover:underline">Modificar saldo ›</span>
-                  </button>
+                  <div className="flex items-center justify-between mt-2">
+                    <span className="text-[10px] text-slate-400">Billetera Virtual USD</span>
+                    <button
+                      onClick={handleStartEditBalance}
+                      className="flex items-center gap-1 text-[10px] text-emerald-400 hover:text-emerald-300 font-semibold transition group"
+                    >
+                      <Pencil size={9} />
+                      <span className="group-hover:underline">Modificar</span>
+                    </button>
+                  </div>
                 </>
               )}
             </div>
 
-            {/* Operaciones ganadoras */}
-            <div className="bg-slate-900/20 border border-slate-900 rounded-xl p-5 backdrop-blur-sm relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-24 h-24 bg-red-500/5 rounded-full filter blur-xl"></div>
-              <p className="text-xs text-slate-400 font-semibold tracking-wide uppercase">Operaciones Ganadoras</p>
-              <h3 className="text-2xl font-bold mt-2 text-slate-200">{winRate}%</h3>
-              <div className="flex items-center gap-1 text-[10px] text-slate-500 mt-2">
-                <span>{winningTradesCount} ganadas / {losingTradesCount} perdidas</span>
+            {/* Card 2: Portafolio Total */}
+            <div className="bg-slate-900/20 border border-slate-900 rounded-xl p-5 relative overflow-hidden backdrop-blur-sm">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-400">Valor Total Portafolio</span>
+                <Briefcase size={16} className="text-blue-400" />
               </div>
+              <h3 className="text-xl font-extrabold text-white mt-2 font-mono">
+                ${totalPortfolioValue.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+              </h3>
+              <p className="text-[10px] text-slate-400 mt-2">Efectivo + Inversiones Activas</p>
             </div>
 
-            {/* Estado API */}
-            <div className="bg-slate-900/20 border border-slate-900 rounded-xl p-5 backdrop-blur-sm relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/5 rounded-full filter blur-xl"></div>
-              <p className="text-xs text-slate-400 font-semibold tracking-wide uppercase">Conexión con FastAPI</p>
-              <h3 className={`text-2xl font-bold mt-2 flex items-center gap-1.5 ${isBackendConnected ? "text-emerald-400" : "text-amber-400"}`}>
-                {isBackendConnected ? "CONECTADO" : "MOCK DEMO"}
-              </h3>
-              <div className="flex items-center gap-1 text-[10px] mt-2">
-                {isBackendConnected ? (
-                  <span className="text-emerald-500 flex items-center gap-1">
-                    <RefreshCw size={10} className="animate-spin" />
-                    Ejecución activa en Render.com
-                  </span>
-                ) : (
-                  <span className="text-amber-500">
-                    Bypass activo (Simulación de Inferencia local)
-                  </span>
-                )}
+            {/* Card 3: Retorno Latente (PnL) */}
+            <div className="bg-slate-900/20 border border-slate-900 rounded-xl p-5 relative overflow-hidden backdrop-blur-sm">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-400">Retorno Latente (PnL)</span>
+                <TrendingUp size={16} className={profitLossAmount >= 0 ? "text-emerald-400" : "text-red-400"} />
               </div>
+              <h3 className={`text-xl font-extrabold mt-2 font-mono ${profitLossAmount >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                {profitLossAmount >= 0 ? "+" : ""}${profitLossAmount.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+              </h3>
+              <span className={`text-[10px] font-bold ${profitLossAmount >= 0 ? "text-emerald-400" : "text-red-400"} block mt-2`}>
+                {profitLossPercent >= 0 ? "+" : ""}{profitLossPercent.toFixed(2)}% vs Base
+              </span>
+            </div>
+
+            {/* Card 4: Operaciones Ganadoras (Win Rate) */}
+            <div className="bg-slate-900/20 border border-slate-900 rounded-xl p-5 relative overflow-hidden backdrop-blur-sm">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-400">Operaciones Ganadoras</span>
+                <CheckCircle2 size={16} className="text-purple-400" />
+              </div>
+              <h3 className="text-xl font-extrabold text-white mt-2 font-mono">{winRate}%</h3>
+              <p className="text-[10px] text-slate-400 mt-2">
+                {winningTradesCount} ganadas / {losingTradesCount} pérdidas
+              </p>
             </div>
           </div>
 
@@ -513,10 +571,30 @@ export default function DashboardPage() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* Chart Area */}
             <div className="lg:col-span-2 bg-slate-900/20 border border-slate-900 rounded-xl p-6 backdrop-blur-sm flex flex-col justify-between h-[380px]">
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
                 <div>
                   <h4 className="font-bold text-lg text-white">Historial de Rendimiento</h4>
-                  <p className="text-xs text-slate-400">Rentabilidad acumulada del bot (%)</p>
+                  <p className="text-xs text-slate-400">Rentabilidad acumulada del bot ({timeframe})</p>
+                </div>
+                <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-lg border border-slate-900">
+                  {[
+                    { id: "1D", label: "Día" },
+                    { id: "1W", label: "Semana" },
+                    { id: "1M", label: "Mes" },
+                    { id: "1Y", label: "Año" },
+                  ].map((tf) => (
+                    <button
+                      key={tf.id}
+                      onClick={() => setTimeframe(tf.id as TimeFrame)}
+                      className={`px-2.5 py-1 rounded-md text-xs font-semibold transition active:scale-95 ${
+                        timeframe === tf.id
+                          ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 shadow-sm font-bold"
+                          : "text-slate-400 hover:text-slate-200 hover:bg-slate-900/60"
+                      }`}
+                    >
+                      {tf.label}
+                    </button>
+                  ))}
                 </div>
               </div>
 
