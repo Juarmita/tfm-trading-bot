@@ -37,6 +37,14 @@ export default function InvestmentFlowDrawer({ isOpen, onClose }: InvestmentFlow
   const [strategyType, setStrategyType] = useState<"long_term" | "short_term">("long_term");
   const [symbol, setSymbol] = useState<string>("AAPL");
   const [marketRegion, setMarketRegion] = useState<string>("US");
+  const [currency, setCurrency] = useState<"USD" | "EUR" | "GBP" | "CNY">("USD");
+
+  const currencySymbols: Record<string, string> = {
+    USD: "$",
+    EUR: "€",
+    GBP: "£",
+    CNY: "¥",
+  };
 
   const marketSuffixes: Record<string, string> = {
     US: "",
@@ -76,7 +84,7 @@ export default function InvestmentFlowDrawer({ isOpen, onClose }: InvestmentFlow
     if (suffix && !finalSymbol.includes(".")) {
       finalSymbol = `${finalSymbol}${suffix}`;
     }
-    executeAnalysis(parsedAmount, strategyType, finalSymbol);
+    executeAnalysis(parsedAmount, strategyType, finalSymbol, currency);
   };
 
   return (
@@ -107,8 +115,8 @@ export default function InvestmentFlowDrawer({ isOpen, onClose }: InvestmentFlow
             <p className="text-xs text-slate-400">
               Saldo disponible en Wallet:{" "}
               <span className="text-emerald-400 font-semibold">
-                ${(wallet?.balance ?? 10000).toLocaleString("en-US", { minimumFractionDigits: 2 })}{" "}
-                {wallet?.currency ?? "USD"}
+                {currencySymbols[currency] || "$"}{(wallet?.balance ?? 10000).toLocaleString("en-US", { minimumFractionDigits: 2 })}{" "}
+                {currency}
               </span>
             </p>
           </div>
@@ -175,13 +183,44 @@ export default function InvestmentFlowDrawer({ isOpen, onClose }: InvestmentFlow
                 </p>
               </div>
 
+              {/* Selección de Moneda de Operación */}
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-300 uppercase tracking-wider block">
+                  Moneda de Operación
+                </label>
+                <div className="grid grid-cols-4 gap-2">
+                  {[
+                    { id: "USD", name: "Dólar ($)", symbol: "$" },
+                    { id: "EUR", name: "Euro (€)", symbol: "€" },
+                    { id: "GBP", name: "Libra (£)", symbol: "£" },
+                    { id: "CNY", name: "Yuan (¥)", symbol: "¥" },
+                  ].map((c) => (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => setCurrency(c.id as any)}
+                      className={`py-2.5 px-2 rounded-xl text-xs font-bold border transition flex items-center justify-center gap-1.5 ${
+                        currency === c.id
+                          ? "bg-emerald-500/20 border-emerald-500 text-emerald-400 shadow-md shadow-emerald-500/10"
+                          : "bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200 hover:bg-slate-900"
+                      }`}
+                    >
+                      <span className="font-mono text-sm font-extrabold">{c.symbol}</span>
+                      <span>{c.id}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {/* Monto a invertir */}
               <div className="space-y-2">
                 <label className="text-xs font-bold text-slate-300 uppercase tracking-wider block">
-                  Monto de capital a asignar (USD)
+                  Monto de capital a asignar ({currency})
                 </label>
                 <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 font-mono">$</span>
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 font-mono font-bold">
+                    {currencySymbols[currency]}
+                  </span>
                   <input
                     type="number"
                     min="100"

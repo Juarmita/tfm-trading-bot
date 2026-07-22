@@ -375,7 +375,7 @@ class MarketDataService:
 
     @classmethod
     async def get_usd_exchange_rate(cls, currency: str) -> float:
-        """Obtiene la tasa de cambio a USD para una moneda dada (ej: EUR, GBP, GBp)."""
+        """Obtiene la tasa de cambio a USD para una moneda dada (ej: EUR, GBP, GBp, CNY)."""
         if not hasattr(cls, "_exchange_rates_cache"):
             cls._exchange_rates_cache = {}
             cls._exchange_rates_timestamp = {}
@@ -388,7 +388,7 @@ class MarketDataService:
             return 1.0
 
         # Identificar si es peniques (GBp o GBX)
-        is_pence = currency_upper in ("GBP", "GBp", "GBX", "PENCE", "GBY")
+        is_pence = currency_upper in ("GBp", "GBX", "PENCE")
         lookup_curr = "GBP" if is_pence else currency_upper
 
         now = time.time()
@@ -399,20 +399,45 @@ class MarketDataService:
             rate_val: float = float(cls._exchange_rates_cache[lookup_curr])
             return (rate_val / 100.0) if is_pence else rate_val
 
+        fallbacks = {"EUR": 1.09, "GBP": 1.28, "CNY": 0.14, "RMB": 0.14}
+        rate = fallbacks.get(lookup_curr, 1.0)
+
         try:
-            fx_ticker = yf.Ticker(f"{lookup_curr}USD=X")
-            loop = asyncio.get_event_loop()
-            df = await loop.run_in_executor(None, lambda: fx_ticker.history(period="1d"))
-            if not df.empty:
-                rate = float(df["Close"].iloc[-1])
+            if lookup_curr in ("CNY", "RMB"):
+                # Para CNY, yfinance usa USDCNY=X (cuántos CNY por 1 USD)
+                fx_ticker = yf.Ticker("USDCNY=X")
+                loop = asyncio.get_event_loop()
+                df = await loop.run_in_executor(None, lambda: fx_ticker.history(period="1d"))
+                if not df.empty and float(df["Close"].iloc[-1]) > 0:
+                    cny_per_usd = float(df["Close"].iloc[-1])
+                    rate = 1.0 / cny_per_usd
             else:
-                fallbacks = {"EUR": 1.09, "GBP": 1.28}
-                rate = fallbacks.get(lookup_curr, 1.0)
+                fx_ticker = yf.Ticker(f"{lookup_curr}USD=X")
+                loop = asyncio.get_event_loop()
+                df = await loop.run_in_executor(None, lambda: fx_ticker.history(period="1d"))
+                if not df.empty and float(df["Close"].iloc[-1]) > 0:
+                    rate = float(df["Close"].iloc[-1])
         except Exception:
-            fallbacks = {"EUR": 1.09, "GBP": 1.28}
-            rate = fallbacks.get(lookup_curr, 1.0)
+            pass
 
         cls._exchange_rates_cache[lookup_curr] = rate
         cls._exchange_rates_timestamp[lookup_curr] = now
 
         return (rate / 100.0) if is_pence else rate
+
+    @classmethod
+    async def get_exchange_rate(cls, from_currency: str, to_currency: str) -> float:
+        """Obtiene la tasa de conversión directa entre dos divisas cualesquiera (ej: EUR a CNY, GBP a EUR)."""
+        from_curr = (from_currency or "USD").upper().strip()
+        to_curr = (to_currency or "USD").upper().strip()
+
+        if from_curr == to_curr:
+            return 1.0
+
+        rate_from_usd = await cls.get_usd_exchange_rate(from_curr)
+        rate_to_usd = await cls.get_usd_exchange_rate(to_curr)
+
+        if rate_to_usd <= 0:
+            return 1.0
+
+        return rate_from_usd / rate_to_usd

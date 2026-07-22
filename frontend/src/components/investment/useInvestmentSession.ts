@@ -46,7 +46,8 @@ export function useInvestmentSession() {
   const executeAnalysis = async (
     amount: number,
     strategyType: "long_term" | "short_term",
-    symbol: string
+    symbol: string,
+    currency: "USD" | "EUR" | "GBP" | "CNY" = "USD"
   ) => {
     // Protección contra race conditions y double submits
     if (state === "validating" || state === "analyzing" || state === "executing") {
@@ -87,15 +88,18 @@ export function useInvestmentSession() {
         symbol: symbol.toUpperCase(),
         strategy_type: strategyType,
         available_capital: amount,
+        currency: currency,
       });
 
       setDecisionOutput(response.data);
       setState("ready");
       toast.success("¡Análisis de mercado completado por la IA!");
     } catch (err: unknown) {
-      const axiosErr = err as AxiosError<{ detail?: string }>;
+      const axiosErr = err as AxiosError<{ detail?: string; error?: string }>;
       const serverError =
-        axiosErr.response?.data?.detail || "Fallo de conexión con el motor cuantitativo de IA.";
+        axiosErr.response?.data?.detail ||
+        axiosErr.response?.data?.error ||
+        "Fallo de conexión con el motor cuantitativo de IA.";
       setError(serverError);
       setState("idle");
       toast.error(serverError);

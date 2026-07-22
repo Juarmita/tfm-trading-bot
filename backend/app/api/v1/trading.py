@@ -87,6 +87,7 @@ class AnalyzeRequest(BaseModel):
     symbol: str = Field(..., description="Ticker bursátil a analizar (ej: AAPL, BTC-USD)")
     strategy_type: Literal["long_term", "short_term"] = Field(..., description="Estrategia: long_term o short_term")
     available_capital: Decimal = Field(..., description="Capital disponible asignable para operar", gt=0.0)
+    currency: Literal["USD", "EUR", "GBP", "CNY"] = Field("USD", description="Moneda de preferencia para la operación: USD, EUR, GBP, CNY")
     max_iterations: int = Field(3, description="Número máximo de reintentos o iteraciones del motor", ge=1, le=10)
 
 
@@ -207,6 +208,7 @@ async def analyze_trading(
             symbol=request.symbol,
             strategy_type=request.strategy_type,
             available_capital=request.available_capital,
+            target_currency=request.currency,
             max_iterations=request.max_iterations,
         )
 
@@ -220,6 +222,7 @@ async def analyze_trading(
             "symbol": request.symbol.upper(),
             "available_capital": float(request.available_capital),
             "strategy": request.strategy_type,
+            "currency": request.currency,
         }
 
         execution_plan = [order.model_dump() for order in decision_output.orders]
@@ -248,7 +251,7 @@ async def analyze_trading(
                     quantity=report.quantity_filled,
                     price=report.price_filled,
                     amount=report.quantity_filled * report.price_filled,
-                    reason=f"Ejecutada con éxito por el broker con slippage de ${report.slippage_usd:.2f} USD.",
+                    reason=f"Ejecutada con éxito por el broker con slippage de ${report.slippage_usd:.2f} {request.currency}.",
                 )
 
         return decision_output
@@ -257,9 +260,9 @@ async def analyze_trading(
         logger.error(f"Error de validación en análisis: {ve}")
         raise HTTPException(status_code=400, detail=str(ve))
     except Exception as e:
-        logger.error(f"Error crítico inesperado en motor de IA: {e}")
+        logger.error(f"Error en motor de IA: {e}")
         raise HTTPException(
-            status_code=500, detail="Ocurrió un error inesperado en el servidor durante el procesamiento."
+            status_code=500, detail=f"Error en el motor de IA de procesamiento de mercado: {str(e)}"
         )
 
 

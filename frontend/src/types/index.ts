@@ -30,6 +30,7 @@ export interface AnalyzeRequest {
   symbol: string;
   strategy_type: StrategyType;
   available_capital: number;
+  currency?: "USD" | "EUR" | "GBP" | "CNY";
   max_iterations?: number;
 }
 

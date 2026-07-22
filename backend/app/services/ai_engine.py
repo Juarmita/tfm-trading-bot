@@ -413,20 +413,48 @@ class AIEngineService:
         symbol: str,
         strategy_type: Literal["long_term", "short_term"],
         available_capital: Decimal,
+        target_currency: str = "USD",
         max_iterations: int = 3,
     ) -> AIDecisionOutput:
         """Orquestador de Aplicación (Clean Infrastructure/App Layer).
 
-        Recupera datos de E/S externas y delega el cálculo puro al dominio.
+        Recupera datos de E/S externas con resiliencia ante bloqueos en la nube y delega el cálculo puro al dominio.
         """
         start_time = time.time()
         session_id = uuid4()
         symbol_upper = symbol.upper()
 
-        # 1. Obtener Histórico (E/S externa)
+        # Importación diferida para prevenir ciclo circular de módulos
+        from app.services.market_data import MarketDataService
+
+        # 1. Obtener Histórico con resiliencia y fallback automático ante bloqueos cloud
         ticker = yf.Ticker(symbol_upper)
         loop = asyncio.get_event_loop()
-        df = await loop.run_in_executor(None, lambda: ticker.history(period="1y"))
+        df = pd.DataFrame()
+
+        try:
+            df = await loop.run_in_executor(None, lambda: ticker.history(period="1y"))
+        except Exception as e:
+            logger.warning(f"Excepción al consultar yfinance para {symbol_upper}: {e}. Ejecutando fallback de mercado...")
+
+        if df.empty or len(df) == 0:
+            try:
+                historical_candles = await MarketDataService.get_historical(symbol_upper, period="6mo")
+                if historical_candles:
+                    data = [
+                        {
+                            "Open": c.open,
+                            "High": c.high,
+                            "Low": c.low,
+                            "Close": c.close,
+                            "Volume": c.volume,
+                        }
+                        for c in historical_candles
+                    ]
+                    indices = [c.date for c in historical_candles]
+                    df = pd.DataFrame(data, index=indices)
+            except Exception as fe:
+                logger.warning(f"Módulo de fallback de mercado también falló para {symbol_upper}: {fe}")
 
         if df.empty or len(df) == 0:
             raise ValueError(
@@ -441,7 +469,7 @@ class AIEngineService:
         except Exception:
             info = {}
 
-        # 3. Moneda y tasa de cambio (E/S externa)
+        # 3. Moneda del activo y tasa de cambio a la divisa objetivo elegida
         currency = "USD"
         try:
             currency = str(info.get("currency") or "USD")
@@ -450,9 +478,6 @@ class AIEngineService:
                 currency = "EUR"
             elif symbol_upper.endswith(".L"):
                 currency = "GBp"
-
-        # Importación diferida para prevenir ciclo circular de módulos
-        from app.services.market_data import MarketDataService
 
         usd_rate = await MarketDataService.get_usd_exchange_rate(currency)
         concentration = cls.get_portfolio_concentration(user_id, symbol_upper)
