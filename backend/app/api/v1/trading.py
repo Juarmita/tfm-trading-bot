@@ -551,15 +551,16 @@ async def get_portfolio(
             # 5. Generar insights y hechos dinámicos del portafolio (facts)
             facts = []
             if positions:
-                # Mejor rendimiento
+                # Mejor rendimiento (solo se muestra si la posición tiene rendimiento positivo)
                 best_pos = max(positions, key=lambda p: p.profit_loss_pct)
-                facts.append(
-                    PortfolioFact(
-                        type="best_performer",
-                        title="Mejor Rendimiento",
-                        description=f"{best_pos.symbol} es tu activo con mayor retorno hasta ahora: +{best_pos.profit_loss_pct:.2f}%.",
+                if best_pos.profit_loss_pct >= 0:
+                    facts.append(
+                        PortfolioFact(
+                            type="best_performer",
+                            title="Mejor Rendimiento",
+                            description=f"{best_pos.symbol} es tu activo con mayor retorno hasta ahora: +{best_pos.profit_loss_pct:.2f}%.",
+                        )
                     )
-                )
 
                 # Peor rendimiento
                 worst_pos = min(positions, key=lambda p: p.profit_loss_pct)
