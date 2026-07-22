@@ -227,7 +227,7 @@ export default function PortfolioPage() {
               <span>Panel de Control</span>
             </Link>
             <Link
-              href="/invest"
+              href="/investment"
               className="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-900/50 transition font-medium"
             >
               <Coins size={18} />
@@ -273,7 +273,7 @@ export default function PortfolioPage() {
           </div>
           <div className="flex items-center gap-3">
             <Link
-              href="/invest"
+              href="/investment"
               className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold px-4 py-2 rounded-lg shadow-lg shadow-emerald-500/10 hover:shadow-emerald-400/20 transition active:scale-95 text-sm"
             >
               <Play size={15} fill="currentColor" />
