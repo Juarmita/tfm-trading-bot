@@ -43,6 +43,7 @@ export interface PositionModel {
   cost_basis: number;
   profit_loss: number;
   profit_loss_pct: number;
+  created_at?: string;
 }
 
 export interface PortfolioSummary {

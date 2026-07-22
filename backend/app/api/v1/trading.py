@@ -186,16 +186,25 @@ async def save_trade_to_supabase(
 # -------------------------------------------------------------------------
 
 
+class ExecuteRequest(BaseModel):
+    user_id: UUID = Field(..., description="ID del usuario que confirma la ejecución")
+    decision_output: AIDecisionOutput = Field(..., description="Resultado del análisis previo a ejecutar")
+
+
+# -------------------------------------------------------------------------
+# ENDPOINTS
+# -------------------------------------------------------------------------
+
+
 @router.post("/analyze", response_model=AIDecisionOutput)
 async def analyze_trading(
     request: AnalyzeRequest,
     current_user_id: Optional[str] = Depends(get_current_user_id),
-    broker: IBrokerAdapter = Depends(get_broker),
 ) -> AIDecisionOutput:
     """
-    Ejecuta el motor de decisión cuantitativo basado en IA para el activo especificado.
-    Realiza las validaciones de riesgo, guarda la sesión, ejecuta las órdenes mediante el broker
-    desacoplado y almacena los reportes de ejecución en Supabase.
+    Ejecuta la inferencia del motor cuantitativo de IA para el activo especificado.
+    Devuelve la propuesta analítica y guarda la sesión en estado 'pending'.
+    NO ejecuta órdenes en el broker ni modifica la cartera hasta la confirmación explícita del usuario.
     """
     if current_user_id and str(request.user_id) != current_user_id:
         raise HTTPException(
@@ -212,12 +221,7 @@ async def analyze_trading(
             max_iterations=request.max_iterations,
         )
 
-        # 2. Ejecutar el plan mediante la capa de abstracción del Broker desacoplado
-        execution_reports = await OrderExecutorService.process_ai_execution_plan(
-            user_id=request.user_id, decision_output=decision_output, broker=broker
-        )
-
-        # 3. Guardar sesión de análisis en Supabase en segundo plano
+        # 2. Guardar sesión de análisis en Supabase en estado 'pending' (sin ejecutar aún en broker)
         input_snapshot = {
             "symbol": request.symbol.upper(),
             "available_capital": float(request.available_capital),
@@ -227,8 +231,6 @@ async def analyze_trading(
 
         execution_plan = [order.model_dump() for order in decision_output.orders]
 
-        # Guardado en base de datos
-        status = "executed" if decision_output.decision != "HOLD" else "pending"
         await save_session_to_supabase(
             session_id=decision_output.session_id,
             user_id=request.user_id,
@@ -237,22 +239,8 @@ async def analyze_trading(
             input_snapshot=input_snapshot,
             ai_reasoning=decision_output.reasoning_markdown,
             execution_plan=execution_plan,
-            status=status,
+            status="pending",
         )
-
-        # 4. Guardar las transacciones liquidadas (trades) reportadas por el broker
-        for report in execution_reports:
-            if report.status == "filled":
-                await save_trade_to_supabase(
-                    trade_id=report.order_id,
-                    session_id=decision_output.session_id,
-                    symbol=report.symbol,
-                    action=report.action,
-                    quantity=report.quantity_filled,
-                    price=report.price_filled,
-                    amount=report.quantity_filled * report.price_filled,
-                    reason=f"Ejecutada con éxito por el broker con slippage de ${report.slippage_usd:.2f} {request.currency}.",
-                )
 
         return decision_output
 
@@ -263,6 +251,53 @@ async def analyze_trading(
         logger.error(f"Error en motor de IA: {e}")
         raise HTTPException(
             status_code=500, detail=f"Error en el motor de IA de procesamiento de mercado: {str(e)}"
+        )
+
+
+@router.post("/execute")
+async def execute_trading_plan(
+    request: ExecuteRequest,
+    current_user_id: Optional[str] = Depends(get_current_user_id),
+    broker: IBrokerAdapter = Depends(get_broker),
+):
+    """
+    Ejecuta en firme el plan de trading previamente analizado tras la confirmación explícita del usuario.
+    Transmite la orden al broker, actualiza la billetera y registra la transacción en Supabase con fecha/hora actual.
+    """
+    if current_user_id and str(request.user_id) != current_user_id:
+        raise HTTPException(
+            status_code=403, detail="No tienes autorización para operar bajo la identidad de este usuario."
+        )
+
+    decision_output = request.decision_output
+    if decision_output.decision == "HOLD" or not decision_output.orders:
+        return {"status": "skipped", "message": "Estrategia HOLD. No se ejecutan órdenes en mercado."}
+
+    try:
+        # 1. Ejecutar el plan mediante la capa de abstracción del Broker desacoplado
+        execution_reports = await OrderExecutorService.process_ai_execution_plan(
+            user_id=request.user_id, decision_output=decision_output, broker=broker
+        )
+
+        # 2. Guardar las transacciones liquidadas (trades) reportadas por el broker con fecha y hora actual
+        for report in execution_reports:
+            if report.status == "filled":
+                await save_trade_to_supabase(
+                    trade_id=report.order_id,
+                    session_id=decision_output.session_id,
+                    symbol=report.symbol,
+                    action=report.action,
+                    quantity=report.quantity_filled,
+                    price=report.price_filled,
+                    amount=report.quantity_filled * report.price_filled,
+                    reason=f"Ejecución en firme a fecha {report.timestamp.isoformat()} con slippage de ${report.slippage_usd:.2f} USD.",
+                )
+
+        return {"status": "success", "session_id": str(decision_output.session_id), "reports": execution_reports}
+    except Exception as e:
+        logger.error(f"Error al ejecutar órdenes en firme: {e}")
+        raise HTTPException(
+            status_code=500, detail=f"Error al transmitir órdenes de mercado al broker: {str(e)}"
         )
 
 
@@ -280,6 +315,7 @@ class PositionModel(BaseModel):
     cost_basis: float = Field(..., description="Base de coste")
     profit_loss: float = Field(..., description="Ganancia/Pérdida absoluta en USD")
     profit_loss_pct: float = Field(..., description="Ganancia/Pérdida porcentual")
+    created_at: Optional[str] = Field(None, description="Fecha y hora ISO de compra")
 
 
 class PortfolioSummary(BaseModel):
@@ -386,22 +422,23 @@ async def get_portfolio(
             cash = float(wallets[0]["balance"]) if wallets else 10000.0
 
             # 2. Obtener todos los trades asociados al usuario a través del JOIN inner con ai_trading_sessions
-            trades_url = f"{supabase_url}/rest/v1/trades?select=symbol,action,quantity,price_executed,amount_usd,ai_trading_sessions!inner(user_id)&ai_trading_sessions.user_id=eq.{user_id}"
+            trades_url = f"{supabase_url}/rest/v1/trades?select=symbol,action,quantity,price_executed,amount_usd,created_at,ai_trading_sessions!inner(user_id)&ai_trading_sessions.user_id=eq.{user_id}"
             trades_res = await client.get(trades_url, headers=headers)
             trades_res.raise_for_status()
             db_trades = trades_res.json()
 
             # 3. Calcular posiciones agrupando operaciones con Coste Medio Ponderado Dinámico y Normalización a USD
-            symbols_data: Dict[str, Dict[str, float]] = {}
+            symbols_data: Dict[str, Dict[str, Any]] = {}
 
             # Ordenar trades cronológicamente si se dispone de timestamp
-            sorted_trades = sorted(db_trades, key=lambda t: t.get("timestamp", "")) if db_trades else []
+            sorted_trades = sorted(db_trades, key=lambda t: t.get("created_at") or t.get("timestamp", "")) if db_trades else []
             for t in sorted_trades:
                 sym = t["symbol"].upper()
                 act = t["action"]
                 raw_qty = float(t["quantity"])
                 raw_price = float(t["price_executed"])
                 amt = float(t["amount_usd"])
+                trade_created_at = t.get("created_at") or t.get("timestamp") or ""
 
                 # Detectar moneda del activo para conversión limpia
                 currency = "USD"
@@ -421,7 +458,9 @@ async def get_portfolio(
                     qty = raw_qty
 
                 if sym not in symbols_data:
-                    symbols_data[sym] = {"current_qty": 0.0, "total_cost_basis": 0.0}
+                    symbols_data[sym] = {"current_qty": 0.0, "total_cost_basis": 0.0, "created_at": trade_created_at}
+                elif trade_created_at and not symbols_data[sym].get("created_at"):
+                    symbols_data[sym]["created_at"] = trade_created_at
 
                 if act == "BUY":
                     symbols_data[sym]["current_qty"] += qty
@@ -478,6 +517,7 @@ async def get_portfolio(
                         cost_basis=round(cost_basis, 2),
                         profit_loss=round(profit_loss, 2),
                         profit_loss_pct=round(profit_loss_pct, 2),
+                        created_at=data.get("created_at"),
                     )
                     positions.append(pos_model)
 

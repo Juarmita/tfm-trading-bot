@@ -106,11 +106,8 @@ export function useInvestmentSession() {
     }
   };
 
-  /**
-   * Confirma la ejecución de las órdenes arrojadas por la decisión de la IA
-   */
   const confirmExecution = async () => {
-    if (state !== "ready" || !decisionOutput) {
+    if (state !== "ready" || !decisionOutput || !user) {
       return;
     }
 
@@ -118,9 +115,11 @@ export function useInvestmentSession() {
     toast.info("Transmitiendo órdenes de trading en firme...");
 
     try {
-      // Simular latencia de red para la transacción de mercado en firma
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-      
+      await apiClient.post("/trading/execute", {
+        user_id: user.id,
+        decision_output: decisionOutput,
+      });
+
       setState("done");
       toast.success("¡Estrategia y órdenes de mercado liquidadas con éxito!");
     } catch (err) {

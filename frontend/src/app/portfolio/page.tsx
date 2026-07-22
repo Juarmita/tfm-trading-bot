@@ -424,6 +424,7 @@ export default function PortfolioPage() {
                           <thead>
                             <tr className="border-b border-slate-900 text-xs text-slate-400">
                               <th className="pb-3 font-semibold">Ticker</th>
+                              <th className="pb-3 font-semibold">Fecha / Hora Compra</th>
                               <th className="pb-3 font-semibold text-right">Cantidad</th>
                               <th className="pb-3 font-semibold text-right">Precio Promedio</th>
                               <th className="pb-3 font-semibold text-right">Precio Actual</th>
@@ -432,23 +433,35 @@ export default function PortfolioPage() {
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-slate-900/60">
-                            {positions.map((pos: any) => (
-                              <tr key={pos.symbol} className="text-sm hover:bg-slate-900/20 transition">
-                                <td className="py-3.5 font-bold text-emerald-400 font-mono">{pos.symbol}</td>
-                                <td className="py-3.5 text-right font-mono text-slate-300">{pos.quantity}</td>
-                                <td className="py-3.5 text-right font-mono text-slate-400">${pos.average_price.toFixed(2)}</td>
-                                <td className="py-3.5 text-right font-mono text-slate-300">${pos.current_price.toFixed(2)}</td>
-                                <td className="py-3.5 text-right font-mono text-white">${pos.market_value.toLocaleString("en-US", { minimumFractionDigits: 2 })}</td>
-                                <td className="py-3.5 text-right">
-                                  <span className={`font-bold font-mono block ${pos.profit_loss >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-                                    {pos.profit_loss >= 0 ? "+" : ""}${pos.profit_loss.toFixed(2)}
-                                  </span>
-                                  <span className={`text-2xs font-semibold ${pos.profit_loss_pct >= 0 ? "text-emerald-500/80" : "text-red-500/80"}`}>
-                                    {pos.profit_loss_pct >= 0 ? "+" : ""}{pos.profit_loss_pct.toFixed(2)}%
-                                  </span>
-                                </td>
-                              </tr>
-                            ))}
+                            {positions.map((pos: any) => {
+                              const dateFormatted = pos.created_at
+                                ? new Date(pos.created_at).toLocaleString("es-ES", {
+                                    day: "2-digit",
+                                    month: "2-digit",
+                                    year: "numeric",
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  })
+                                : "En vivo";
+                              return (
+                                <tr key={pos.symbol} className="text-sm hover:bg-slate-900/20 transition">
+                                  <td className="py-3.5 font-bold text-emerald-400 font-mono">{pos.symbol}</td>
+                                  <td className="py-3.5 text-xs text-slate-400 font-mono">{dateFormatted}</td>
+                                  <td className="py-3.5 text-right font-mono text-slate-300">{pos.quantity}</td>
+                                  <td className="py-3.5 text-right font-mono text-slate-400">${pos.average_price.toFixed(2)}</td>
+                                  <td className="py-3.5 text-right font-mono text-slate-300">${pos.current_price.toFixed(2)}</td>
+                                  <td className="py-3.5 text-right font-mono text-white">${pos.market_value.toLocaleString("en-US", { minimumFractionDigits: 2 })}</td>
+                                  <td className="py-3.5 text-right">
+                                    <span className={`font-bold font-mono block ${pos.profit_loss >= 0 ? "text-emerald-400" : "text-red-400"}`}>
+                                      {pos.profit_loss >= 0 ? "+" : ""}${pos.profit_loss.toFixed(2)}
+                                    </span>
+                                    <span className={`text-2xs font-semibold ${pos.profit_loss_pct >= 0 ? "text-emerald-500/80" : "text-red-500/80"}`}>
+                                      {pos.profit_loss_pct >= 0 ? "+" : ""}{pos.profit_loss_pct.toFixed(2)}%
+                                    </span>
+                                  </td>
+                                </tr>
+                              );
+                            })}
                           </tbody>
                         </table>
                       </div>
