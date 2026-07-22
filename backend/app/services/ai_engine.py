@@ -88,7 +88,7 @@ class MarketDataSnapshot(BaseModel):
 class AIEngineService:
     @staticmethod
     def calculate_technical_indicators(df: pd.DataFrame) -> Dict[str, float]:
-        """Calcula indicadores técnicos de mercado de forma robusta e inmune a DataFrames nulos o MultiIndex."""
+        """Calcula indicadores técnicos de mercado incluyendo Rango 52w de forma robusta e inmune a DataFrames nulos o MultiIndex."""
         df_clean = df.copy()
         if isinstance(df_clean.columns, pd.MultiIndex):
             df_clean.columns = df_clean.columns.get_level_values(0)
@@ -142,6 +142,12 @@ class AIEngineService:
         drawdown = (last_90 - roll_max) / (roll_max + 1e-9)
         max_drawdown = float(drawdown.min() * -100.0) if not drawdown.empty else 0.0
 
+        # Rango de 52 Semanas (Máximos y Mínimos anuales)
+        high_52w = float(high.max()) if n_rows > 0 else latest_price
+        low_52w = float(low.min()) if n_rows > 0 else latest_price
+        dist_52w_high_pct = float(((latest_price - high_52w) / (high_52w + 1e-9)) * 100.0)
+        dist_52w_low_pct = float(((latest_price - low_52w) / (low_52w + 1e-9)) * 100.0)
+
         return {
             "price": latest_price,
             "sma20": sma20 if not np.isnan(sma20) else latest_price,
@@ -155,6 +161,10 @@ class AIEngineService:
             "atr14": atr14 if not np.isnan(atr14) else 1.0,
             "rel_vol": rel_vol if not np.isnan(rel_vol) else 1.0,
             "max_drawdown": max_drawdown if not np.isnan(max_drawdown) and not np.isinf(max_drawdown) else 0.0,
+            "high_52w": high_52w if not np.isnan(high_52w) else latest_price,
+            "low_52w": low_52w if not np.isnan(low_52w) else latest_price,
+            "dist_52w_high_pct": dist_52w_high_pct if not np.isnan(dist_52w_high_pct) else 0.0,
+            "dist_52w_low_pct": dist_52w_low_pct if not np.isnan(dist_52w_low_pct) else 0.0,
         }
 
     @staticmethod
@@ -182,7 +192,7 @@ class AIEngineService:
 
             sp_close = sp500_df["Close"]
             if isinstance(sp_close, pd.DataFrame):
-                sp_close = sp_close.iloc[:, 0]
+                sp_close = sp500_df["Close"].iloc[:, 0]
 
             sym_returns = sym_close.pct_change().dropna()
             sp_returns = sp_close.pct_change().dropna()
@@ -217,11 +227,17 @@ class AIEngineService:
         metrics = cls.calculate_technical_indicators(df)
         info = snapshot.info
 
-        # Fundamental data parsing
+        # 1. Análisis de Rango 52 Semanas (Máximos y Mínimos)
+        high_52w = float(info.get("fiftyTwoWeekHigh") or metrics["high_52w"])
+        low_52w = float(info.get("fiftyTwoWeekLow") or metrics["low_52w"])
+        price = metrics["price"]
+
+        dist_52w_high_pct = ((price - high_52w) / (high_52w + 1e-9)) * 100.0
+        dist_52w_low_pct = ((price - low_52w) / (low_52w + 1e-9)) * 100.0
+
+        # 2. Análisis Fundamental y Ratio PER (P/E Ratio)
         pe = float(info.get("forwardPE") or info.get("trailingPE") or 22.0)
-        
-        # P/E medio sectorial dinámico basado en el sector real de la empresa
-        sector = str(info.get("sector") or "").strip()
+        sector = str(info.get("sector") or "Mercado General").strip()
         sector_pe_map = {
             "Technology": 28.5,
             "Financial Services": 14.2,
@@ -237,7 +253,7 @@ class AIEngineService:
         }
         sector_pe = sector_pe_map.get(sector, 22.0)
 
-        # Rendimiento de dividendos normalizado (evitando porcentajes inflados)
+        # Rendimiento de dividendos normalizado
         raw_div = info.get("dividendYield")
         if raw_div is not None and float(raw_div) > 0:
             div_val = float(raw_div)
@@ -247,7 +263,17 @@ class AIEngineService:
 
         debt_equity = float(info.get("debtToEquity") or 45.0)
 
-        fundamentals = {"pe": pe, "sector_pe": sector_pe, "div_yield": div_yield, "debt_equity": debt_equity}
+        fundamentals = {
+            "pe": pe,
+            "sector": sector,
+            "sector_pe": sector_pe,
+            "div_yield": div_yield,
+            "debt_equity": debt_equity,
+            "high_52w": high_52w,
+            "low_52w": low_52w,
+            "dist_52w_high_pct": dist_52w_high_pct,
+            "dist_52w_low_pct": dist_52w_low_pct,
+        }
 
         concentration = snapshot.concentration
         correlation = snapshot.correlation
@@ -263,78 +289,87 @@ class AIEngineService:
         drawdown_penalty = metrics["max_drawdown"] > 25.0
         correlation_penalty = correlation > 0.70
 
-        # Enrutamiento de Estrategia
+        # MATRIZ DE PUNTUACIÓN Y TOMA DE DECISIONES DE IA
         decision: Literal["BUY", "SELL", "HOLD"] = "HOLD"
-        score = 0
+        score = 0.0
         factors_used: List[str] = []
         weights: Dict[str, float] = {}
 
         if strategy_type == "long_term":
-            factors_used = ["dividend_yield", "momentum", "valuation"]
-            weights = {"dividend_yield": 0.3, "momentum": 0.4, "valuation": 0.3}
+            factors_used = ["valuation_pe", "range_52week", "trend_momentum", "balance_health"]
+            weights = {"valuation_pe": 0.35, "range_52week": 0.25, "trend_momentum": 0.25, "balance_health": 0.15}
 
-            # 1. Tendencia de Mercado y Estructura (máx 4 pts)
-            if metrics["price"] > metrics["sma200"]:
-                score += 2
-            if metrics["sma50"] > metrics["sma200"]:
-                score += 2
-
-            # 2. Valoración y Fundamentales (máx 3 pts)
-            if pe > 0 and pe <= sector_pe * 1.3:
-                score += 2
+            # A. Valoración PER (máx 3.5 pts)
+            if 0 < pe <= sector_pe * 1.15:
+                score += 3.5  # PER atractivo / Fair value
+            elif sector_pe * 1.15 < pe <= sector_pe * 1.6:
+                score += 2.0  # Prima de crecimiento aceptable
+            elif pe > sector_pe * 2.2:
+                score -= 1.5  # Sobrevaloración alta
             elif pe <= 0:
-                score += 1
+                score -= 1.0  # Empresa con pérdidas netas
 
-            if debt_equity < 120.0:
-                score += 1
+            # B. Posición en Rango de 52 Semanas (máx 2.5 pts)
+            if -25.0 <= dist_52w_high_pct <= -6.0:
+                score += 2.5  # Zona óptima de consolidación / acumulación
+            elif dist_52w_high_pct > -3.0:
+                score += 0.5  # Máximos de 52w - Riesgo de resistencia en pico
+            elif dist_52w_low_pct < 10.0 and price < metrics["sma200"]:
+                score -= 2.0  # Trampa de valor / tendencia bajista severa
 
-            # 3. Dividendos y Salud de Entrada (máx 3 pts)
-            if div_yield >= 0.5:
-                score += 2
-            elif metrics["rsi14"] >= 40.0 and metrics["price"] > metrics["sma50"]:
-                # Acción de alto crecimiento en tendencia técnica positiva
-                score += 2
+            # C. Tendencia de Mercado (máx 2.5 pts)
+            if price > metrics["sma200"]:
+                score += 1.5
+            if metrics["sma50"] > metrics["sma200"]:
+                score += 1.0
 
-            if 35.0 <= metrics["rsi14"] <= 68.0:
-                score += 1
+            # D. Dividendos y Deuda (máx 1.5 pts)
+            if div_yield >= 0.8:
+                score += 1.0
+            if debt_equity < 100.0:
+                score += 0.5
 
-            # Umbrales ajustados para decisiones realistas de Largo Plazo
-            if score >= 5:
+            # Umbrales rigurosos para decisiones balanceadas de Largo Plazo
+            if score >= 6.5:
                 decision = "BUY"
-            elif score <= 2:
+            elif score <= 3.0:
                 decision = "SELL"
             else:
                 decision = "HOLD"
 
         else:  # short_term
-            factors_used = ["rsi_oscillator", "relative_volume", "macd_momentum"]
-            weights = {"rsi_oscillator": 0.4, "relative_volume": 0.3, "macd_momentum": 0.3}
+            factors_used = ["rsi_oscillator", "range_52w_momentum", "macd_cross", "relative_volume"]
+            weights = {"rsi_oscillator": 0.35, "range_52w_momentum": 0.25, "macd_cross": 0.25, "relative_volume": 0.15}
 
-            # 1. Oscilador RSI (máx 4 pts)
+            # A. Oscilador RSI (máx 3.5 pts)
             if metrics["rsi14"] < 35.0:
-                score += 4  # Rebote técnico en sobreventa
-            elif 35.0 <= metrics["rsi14"] <= 60.0:
-                score += 3  # Momentum alcista en zona limpia
-            elif metrics["rsi14"] > 72.0:
-                score = 0
+                score += 3.5  # Rebote técnico en sobreventa
+            elif 35.0 <= metrics["rsi14"] <= 62.0:
+                score += 2.5  # Zona limpia de impulso
+            elif metrics["rsi14"] > 70.0:
+                score = 0.0
                 decision = "SELL"
 
-            # 2. Tendencia de Corto Plazo (máx 3 pts)
-            if metrics["price"] > metrics["sma20"]:
-                score += 2
-            if metrics["ema12"] > metrics["ema26"]:
-                score += 1
+            # B. Rango de 52 Semanas en Corto Plazo (máx 2.5 pts)
+            if dist_52w_high_pct >= -12.0 and metrics["rel_vol"] >= 1.1:
+                score += 2.5  # Ruptura alcista de máximos con volumen
+            elif dist_52w_low_pct < 5.0:
+                score -= 1.5  # Ruptura bajista de mínimos
 
-            # 3. MACD y Volumen Relativo (máx 3 pts)
+            # C. MACD y Medias Móviles (máx 2.5 pts)
             if metrics["macd"] > metrics["macd_signal"]:
-                score += 2
-            if metrics["rel_vol"] >= 0.8:
-                score += 1
+                score += 1.5
+            if price > metrics["sma20"]:
+                score += 1.0
+
+            # D. Volumen Relativo (máx 1.5 pts)
+            if metrics["rel_vol"] >= 1.0:
+                score += 1.5
 
             if decision != "SELL":
-                if score >= 5:
+                if score >= 6.5:
                     decision = "BUY"
-                elif score <= 2:
+                elif score <= 3.0:
                     decision = "SELL"
                 else:
                     decision = "HOLD"
@@ -355,7 +390,6 @@ class AIEngineService:
                 if correlation_penalty:
                     final_capital *= 0.8
 
-        price = metrics["price"]
         currency = snapshot.currency
         usd_rate = snapshot.usd_rate
         price_usd = price * usd_rate
@@ -379,20 +413,31 @@ class AIEngineService:
             f"${price:.2f} USD" if currency == "USD" else f"{price:.2f} {currency} (equiv. a ${price_usd:.2f} USD)"
         )
 
+        pe_eval = (
+            "Atractiva / Infravalorada" if pe <= sector_pe * 1.15 else
+            "Prima de Crecimiento Aceptable" if pe <= sector_pe * 1.6 else
+            "Sobrevalorada (Riesgo alto de PER)"
+        )
+
         reasoning_md = f"""# Decisión IA (ID: {session_id})
 
-## 📊 Factores Técnicos
+## 📈 Rango de 52 Semanas (Máximos y Mínimos)
 - **Precio de Cierre Actual**: {price_display}
-- **SMA (20 / 50 / 200)**: {metrics['sma20']:.2f} / {metrics['sma50']:.2f} / {metrics['sma200']:.2f}
-- **RSI (14)**: {metrics['rsi14']:.2f} ({"Sobrecompra (>70)" if metrics['rsi14'] > 70 else "Sobreventa (<30)" if metrics['rsi14'] < 30 else "Neutral"})
-- **MACD (12, 26, 9)**: MACD {metrics['macd']:.4f} (Señal: {metrics['macd_signal']:.4f})
-- **ATR (14)**: {metrics['atr14']:.2f} (Volatilidad del Activo)
-- **Volumen Relativo**: {metrics['rel_vol']:.2f}x (comparado con la media de 20 días)
+- **Máximo de 52 Semanas**: ${high_52w:.2f} (Distancia al máximo: {dist_52w_high_pct:.2f}%)
+- **Mínimo de 52 Semanas**: ${low_52w:.2f} (Distancia al mínimo: +{dist_52w_low_pct:.2f}%)
+- **Proximidad a Límites**: {"Cerca de Máximos / Zona de Resistencia" if dist_52w_high_pct > -5.0 else "Cerca de Mínimos / Zona de Soporte" if dist_52w_low_pct < 10.0 else "Rango Intermedio de Acumulación"}
 
-## 🏢 Fundamentales y Dividendos
-- **Ratio Precio/Ganancias (P/E)**: {fundamentals['pe']:.2f} (Media Sectorial: {fundamentals['sector_pe']:.2f})
+## 🏢 Fundamentales y Dividendos (PER y Valoración)
+- **Ratio Precio/Ganancias (PER)**: {fundamentals['pe']:.2f} (Media Sectorial [{sector}]: {fundamentals['sector_pe']:.2f})
+- **Diagnóstico de Valoración**: {pe_eval}
 - **Rendimiento de Dividendos Anualizado**: {fundamentals['div_yield']:.2f}%
 - **Ratio Deuda / Patrimonio (Debt to Equity)**: {fundamentals['debt_equity']:.2f}%
+
+## 📊 Factores Técnicos y Momentos
+- **SMA (20 / 50 / 200)**: {metrics['sma20']:.2f} / {metrics['sma50']:.2f} / {metrics['sma200']:.2f}
+- **RSI (14)**: {metrics['rsi14']:.2f} ({"Sobrecompra (>70)" if metrics['rsi14'] > 70 else "Sobreventa (<35)" if metrics['rsi14'] < 35 else "Neutral Alcista"})
+- **MACD (12, 26, 9)**: MACD {metrics['macd']:.4f} (Señal: {metrics['macd_signal']:.4f})
+- **ATR (14)**: {metrics['atr14']:.2f} | **Volumen Relativo**: {metrics['rel_vol']:.2f}x
 
 ## ⚖️ Gestión de Riesgo
 - **Drawdown Máximo 90d**: {metrics['max_drawdown']:.2f}% ({"Excedido >25% - Asignación reducida en 50%" if drawdown_penalty else "Dentro de límites"})
@@ -401,7 +446,7 @@ class AIEngineService:
 
 ## 🎯 Horizonte: {strategy_type.upper()}
 - **Decisión Final**: {decision}
-- **Score Acumulado**: {score}/10
+- **Puntuación Cuantitativa**: {score:.1f}/10.0
 - **Nivel de Confianza**: {confidence * 100:.1f}%
 - **Monto de Capital Asignado**: ${final_capital:.2f} USD
 
