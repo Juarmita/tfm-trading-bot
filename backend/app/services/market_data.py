@@ -330,20 +330,39 @@ class MarketDataService:
             raw_news = await cls._fetch_with_backoff(lambda: ticker.news)
 
             news_items = []
-            if raw_news:
+            if raw_news and isinstance(raw_news, list):
                 for item in raw_news[:limit]:
-                    content = item.get("content", {})
+                    if not isinstance(item, dict):
+                        continue
+
+                    content = item.get("content") or {}
+                    if not isinstance(content, dict):
+                        content = {}
+
                     if content:
-                        title = content.get("title") or item.get("title", "Sin Título")
-                        provider = content.get("provider", {})
+                        title = content.get("title") or item.get("title") or "Sin Título"
+                        provider = content.get("provider") or {}
+                        if not isinstance(provider, dict):
+                            provider = {}
+
                         publisher = (
-                            provider.get("displayName") or provider.get("name") or item.get("publisher", "Desconocido")
+                            provider.get("displayName")
+                            or provider.get("name")
+                            or item.get("publisher")
+                            or "Desconocido"
                         )
-                        click_url = content.get("clickThroughUrl", {})
-                        canon_url = content.get("canonicalUrl", {})
-                        link = click_url.get("url") or canon_url.get("url") or item.get("link", "#")
+
+                        click_url = content.get("clickThroughUrl") or {}
+                        if not isinstance(click_url, dict):
+                            click_url = {}
+
+                        canon_url = content.get("canonicalUrl") or {}
+                        if not isinstance(canon_url, dict):
+                            canon_url = {}
+
+                        link = click_url.get("url") or canon_url.get("url") or item.get("link") or "#"
                         pub_date_str = content.get("pubDate")
-                        if pub_date_str:
+                        if pub_date_str and isinstance(pub_date_str, str):
                             try:
                                 if pub_date_str.endswith("Z"):
                                     pub_date_str = pub_date_str[:-1] + "+00:00"
@@ -351,18 +370,27 @@ class MarketDataService:
                             except Exception:
                                 provider_publish_time = datetime.now(timezone.utc)
                         else:
-                            provider_publish_time = datetime.fromtimestamp(
-                                item.get("providerPublishTime", 0), timezone.utc
-                            )
+                            pub_ts = item.get("providerPublishTime", 0)
+                            try:
+                                provider_publish_time = datetime.fromtimestamp(float(pub_ts), timezone.utc)
+                            except Exception:
+                                provider_publish_time = datetime.now(timezone.utc)
                     else:
-                        title = item.get("title", "Sin Título")
-                        publisher = item.get("publisher", "Desconocido")
-                        link = item.get("link", "#")
-                        provider_publish_time = datetime.fromtimestamp(item.get("providerPublishTime", 0), timezone.utc)
+                        title = item.get("title") or "Sin Título"
+                        publisher = item.get("publisher") or "Desconocido"
+                        link = item.get("link") or "#"
+                        pub_ts = item.get("providerPublishTime", 0)
+                        try:
+                            provider_publish_time = datetime.fromtimestamp(float(pub_ts), timezone.utc)
+                        except Exception:
+                            provider_publish_time = datetime.now(timezone.utc)
 
                     news_items.append(
                         NewsItem(
-                            title=title, publisher=publisher, link=link, provider_publish_time=provider_publish_time
+                            title=str(title),
+                            publisher=str(publisher),
+                            link=str(link),
+                            provider_publish_time=provider_publish_time,
                         )
                     )
 
@@ -371,7 +399,8 @@ class MarketDataService:
 
         except Exception as e:
             log_structured(symbol, False, (time.time() - start_time) * 1000, "yfinance", "failed")
-            raise ValueError(f"Error al obtener noticias para {symbol}: {str(e)}")
+            logger.warning(f"No se pudieron obtener noticias para {symbol}: {str(e)}")
+            return []
 
     @classmethod
     async def get_usd_exchange_rate(cls, currency: str) -> float:
