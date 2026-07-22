@@ -34,6 +34,7 @@ import {
   Tooltip,
 } from "recharts";
 import { useRouter } from "next/navigation";
+import { PortfolioResponse } from "@/types";
 
 type DatabaseTrade = {
   id: string;
@@ -50,6 +51,7 @@ export default function DashboardPage() {
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const [trades, setTrades] = useState<DatabaseTrade[]>([]);
+  const [portfolio, setPortfolio] = useState<PortfolioResponse | null>(null);
   const [isBackendConnected, setIsBackendConnected] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
   const [isEditingBalance, setIsEditingBalance] = useState(false);
@@ -115,6 +117,19 @@ export default function DashboardPage() {
     }
   };
 
+  // 3b. Cargar datos del portafolio (posiciones reales y PnL)
+  const fetchPortfolio = async () => {
+    if (!user) return;
+    try {
+      const res = await apiClient.get<PortfolioResponse>(`/trading/portfolio/${user.id}`);
+      if (res.data) {
+        setPortfolio(res.data);
+      }
+    } catch (err) {
+      console.error("Error al cargar portafolio en dashboard:", err);
+    }
+  };
+
   useEffect(() => {
     checkConnection();
   }, []);
@@ -123,6 +138,7 @@ export default function DashboardPage() {
     if (!user) return;
 
     fetchTrades();
+    fetchPortfolio();
 
     // Escuchar actualizaciones de trades en tiempo real
     const tradesChannel = supabase
@@ -136,6 +152,7 @@ export default function DashboardPage() {
         },
         () => {
           fetchTrades();
+          fetchPortfolio();
           refreshSession();
         }
       )
@@ -147,11 +164,12 @@ export default function DashboardPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
-  // 3b. Sincronizar todos los datos manualmente
+  // 3c. Sincronizar todos los datos manualmente
   const handleSync = async () => {
     await refreshSession();
     await checkConnection();
     await fetchTrades();
+    await fetchPortfolio();
   };
 
   // 4. Salir de la sesión (Cerrar sesión)
@@ -234,35 +252,62 @@ export default function DashboardPage() {
     );
   }
 
-  // Cálculos dinámicos
+  // Cálculos dinámicos reales
   const currentBalance = wallet ? wallet.balance : 10000.00;
   const initialBalance = 10000.00;
-  const profitLossAmount = currentBalance - initialBalance;
-  const profitLossPercent = (profitLossAmount / initialBalance) * 100;
+  const positionsValue = portfolio?.summary?.total_positions_value ?? 0.0;
+  const totalPortfolioValue = currentBalance + positionsValue;
+  const profitLossAmount = portfolio?.summary?.total_profit_loss ?? (totalPortfolioValue - initialBalance);
+  const profitLossPercent = initialBalance > 0 ? (profitLossAmount / initialBalance) * 100 : 0.0;
+
   const totalOperationsCount = trades.length;
 
-  const isWinningPortfolio = profitLossAmount >= 0;
-  const winRate = totalOperationsCount > 0 
-    ? (isWinningPortfolio ? 70.2 : 45.5) 
-    : 68.4;
-  const winningTradesCount = Math.round(totalOperationsCount * (winRate / 100));
-  const losingTradesCount = totalOperationsCount - winningTradesCount;
+  let winningTradesCount = 0;
+  let losingTradesCount = 0;
+  let winRate = 0.0;
 
-  const defaultTrades: DatabaseTrade[] = [
-    { id: "seed-1", symbol: "AAPL", action: "BUY", quantity: 12.5, price_executed: 180.00, amount_usd: 2250.00, created_at: new Date(Date.now() - 3600000 * 24).toISOString() },
-    { id: "seed-2", symbol: "MSFT", action: "BUY", quantity: 5.4, price_executed: 370.50, amount_usd: 2000.70, created_at: new Date(Date.now() - 3600000 * 12).toISOString() },
-    { id: "seed-3", symbol: "TSLA", action: "BUY", quantity: 15.0, price_executed: 210.20, amount_usd: 3153.00, created_at: new Date(Date.now() - 3600000 * 2).toISOString() }
-  ];
-  const displayedTrades = totalOperationsCount > 0 ? trades : defaultTrades;
+  if (totalOperationsCount === 0) {
+    winningTradesCount = 0;
+    losingTradesCount = 0;
+    winRate = 0.0;
+  } else if (portfolio && portfolio.positions && portfolio.positions.length > 0) {
+    winningTradesCount = portfolio.positions.filter((p) => p.profit_loss > 0).length;
+    losingTradesCount = portfolio.positions.filter((p) => p.profit_loss < 0).length;
+    const evaluated = portfolio.positions.length;
+    winRate = evaluated > 0 ? Number(((winningTradesCount / evaluated) * 100).toFixed(1)) : 0.0;
+  } else {
+    if (profitLossAmount > 0) {
+      winningTradesCount = totalOperationsCount;
+      losingTradesCount = 0;
+      winRate = 100.0;
+    } else if (profitLossAmount < 0) {
+      winningTradesCount = 0;
+      losingTradesCount = totalOperationsCount;
+      winRate = 0.0;
+    } else {
+      winningTradesCount = 0;
+      losingTradesCount = 0;
+      winRate = 0.0;
+    }
+  }
 
-  const chartData = [
-    { name: "Inicio", rendimiento: 0 },
-    { name: "Semana 1", rendimiento: isWinningPortfolio ? 1.80 : -0.50 },
-    { name: "Semana 2", rendimiento: isWinningPortfolio ? 3.42 : -1.80 },
-    { name: "Semana 3", rendimiento: isWinningPortfolio ? 2.10 : -2.30 },
-    { name: "Semana 4", rendimiento: isWinningPortfolio ? 4.65 : -3.50 },
-    { name: "Actual", rendimiento: Number(profitLossPercent.toFixed(2)) },
-  ];
+  const chartData = totalOperationsCount === 0
+    ? [
+        { name: "Inicio", rendimiento: 0 },
+        { name: "Semana 1", rendimiento: 0 },
+        { name: "Semana 2", rendimiento: 0 },
+        { name: "Semana 3", rendimiento: 0 },
+        { name: "Semana 4", rendimiento: 0 },
+        { name: "Actual", rendimiento: 0 },
+      ]
+    : [
+        { name: "Inicio", rendimiento: 0 },
+        { name: "Semana 1", rendimiento: Number((profitLossPercent * 0.25).toFixed(2)) },
+        { name: "Semana 2", rendimiento: Number((profitLossPercent * 0.50).toFixed(2)) },
+        { name: "Semana 3", rendimiento: Number((profitLossPercent * 0.75).toFixed(2)) },
+        { name: "Semana 4", rendimiento: Number((profitLossPercent * 0.90).toFixed(2)) },
+        { name: "Actual", rendimiento: Number(profitLossPercent.toFixed(2)) },
+      ];
 
   return (
     <div className="flex h-screen bg-slate-950 text-slate-100 overflow-hidden relative">
@@ -529,30 +574,38 @@ export default function DashboardPage() {
               </div>
               
               <div className="space-y-3 overflow-y-auto flex-1 pr-1 custom-scrollbar">
-                {displayedTrades.map((trade) => (
-                  <div
-                    key={trade.id}
-                    className="flex items-center justify-between p-3 rounded-lg bg-slate-950/40 border border-slate-900/60 hover:border-slate-800 transition"
-                  >
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className={`text-[10px] font-extrabold px-1.5 py-0.5 rounded ${trade.action === "BUY" ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"}`}>
-                          {trade.action}
-                        </span>
-                        <span className="font-semibold text-sm text-slate-200">{trade.symbol}</span>
-                      </div>
-                      <p className="text-[11px] text-slate-500 mt-1">Precio: ${trade.price_executed.toFixed(2)}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm font-bold text-slate-100">
-                        {trade.action === "BUY" ? "+" : "-"}{trade.quantity.toFixed(3)}
-                      </p>
-                      <p className="text-[10px] text-slate-400 mt-0.5">
-                        ${trade.amount_usd.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD
-                      </p>
-                    </div>
+                {trades.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center h-full text-center p-4">
+                    <Coins className="text-slate-600 mb-2" size={32} />
+                    <p className="text-xs text-slate-400 font-medium">Sin operaciones registradas aún.</p>
+                    <p className="text-[10px] text-slate-500 mt-1">Lanza tu primera estrategia cuántica desde el Módulo de Inversión.</p>
                   </div>
-                ))}
+                ) : (
+                  trades.map((trade) => (
+                    <div
+                      key={trade.id}
+                      className="flex items-center justify-between p-3 rounded-lg bg-slate-950/40 border border-slate-900/60 hover:border-slate-800 transition"
+                    >
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className={`text-[10px] font-extrabold px-1.5 py-0.5 rounded ${trade.action === "BUY" ? "bg-emerald-500/10 text-emerald-400" : "bg-red-500/10 text-red-400"}`}>
+                            {trade.action}
+                          </span>
+                          <span className="font-semibold text-sm text-slate-200">{trade.symbol}</span>
+                        </div>
+                        <p className="text-[11px] text-slate-500 mt-1">Precio: ${trade.price_executed.toFixed(2)}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-bold text-slate-100">
+                          {trade.action === "BUY" ? "+" : "-"}{trade.quantity.toFixed(3)}
+                        </p>
+                        <p className="text-[10px] text-slate-400 mt-0.5">
+                          ${trade.amount_usd.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD
+                        </p>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           </div>
