@@ -391,8 +391,7 @@ async def get_portfolio(
             trades_res.raise_for_status()
             db_trades = trades_res.json()
 
-            # 3. Calcular posiciones agrupando operaciones con Coste Medio Ponderado Dinámico (Moving Average Cost Basis)
-            # Estructura: { symbol: { current_qty, total_cost_basis } }
+            # 3. Calcular posiciones agrupando operaciones con Coste Medio Ponderado Dinámico y Normalización a USD
             symbols_data: Dict[str, Dict[str, float]] = {}
 
             # Ordenar trades cronológicamente si se dispone de timestamp
@@ -400,8 +399,26 @@ async def get_portfolio(
             for t in sorted_trades:
                 sym = t["symbol"].upper()
                 act = t["action"]
-                qty = float(t["quantity"])
+                raw_qty = float(t["quantity"])
+                raw_price = float(t["price_executed"])
                 amt = float(t["amount_usd"])
+
+                # Detectar moneda del activo para conversión limpia
+                currency = "USD"
+                if sym.endswith((".MC", ".DE", ".PA")):
+                    currency = "EUR"
+                elif sym.endswith(".L"):
+                    currency = "GBp"
+
+                usd_rate = await MarketDataService.get_usd_exchange_rate(currency)
+
+                # Si el precio registrado en DB era la cotización bruta en divisa local sin convertir a USD:
+                # Normalizamos price_usd y qty para que todo el cálculo de posición sea 100% homogéneo en USD.
+                if raw_price > 0 and amt > 0 and abs((raw_price * raw_qty) - amt) > 5.0:
+                    price_usd = raw_price * usd_rate
+                    qty = amt / price_usd if price_usd > 0 else raw_qty
+                else:
+                    qty = raw_qty
 
                 if sym not in symbols_data:
                     symbols_data[sym] = {"current_qty": 0.0, "total_cost_basis": 0.0}
