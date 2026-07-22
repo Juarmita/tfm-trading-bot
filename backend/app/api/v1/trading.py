@@ -444,7 +444,7 @@ async def get_portfolio(
                 session_info = t.get("ai_trading_sessions") or {}
                 trade_created_at = session_info.get("created_at") or t.get("created_at") or t.get("timestamp") or ""
 
-                # Detectar moneda del activo para conversión limpia
+                # Detectar moneda del activo para conversión limpia a USD
                 currency = "USD"
                 if sym.endswith((".MC", ".DE", ".PA")):
                     currency = "EUR"
@@ -453,12 +453,13 @@ async def get_portfolio(
 
                 usd_rate = await MarketDataService.get_usd_exchange_rate(currency)
 
-                # Si el precio registrado en DB era la cotización bruta en divisa local sin convertir a USD:
-                # Normalizamos price_usd y qty para que todo el cálculo de posición sea 100% homogéneo en USD.
-                if raw_price > 0 and amt > 0 and abs((raw_price * raw_qty) - amt) > 5.0:
+                # Si el activo no cotiza en USD y el precio ejecutado guardado en DB estaba en la moneda local:
+                # Normalizamos price_usd y qty para que todo el cálculo de posición sea 100% consistente en USD.
+                if currency != "USD" and raw_price > 0 and amt > 0 and (raw_price < (amt / raw_qty) * 0.95 or abs((raw_price * raw_qty) - amt) < 1.0):
                     price_usd = raw_price * usd_rate
                     qty = amt / price_usd if price_usd > 0 else raw_qty
                 else:
+                    price_usd = raw_price
                     qty = raw_qty
 
                 if sym not in symbols_data:
@@ -714,3 +715,75 @@ async def reset_portfolio(
             raise HTTPException(
                 status_code=500, detail=f"Error interno al restablecer el portafolio en base de datos: {str(e)}"
             )
+
+
+@router.get("/trades/{user_id}")
+async def get_user_trades(
+    user_id: UUID,
+    current_user_id: Optional[str] = Depends(get_current_user_id),
+):
+    """
+    Obtiene la lista histórica de operaciones (trades) ejecutadas para el usuario especificado.
+    """
+    if current_user_id and str(user_id) != current_user_id:
+        raise HTTPException(
+            status_code=403, detail="No tienes autorización para acceder a los datos de este usuario."
+        )
+
+    supabase_url = os.getenv("NEXT_PUBLIC_SUPABASE_URL")
+    supabase_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+    if not supabase_url or not supabase_key:
+        return []
+
+    headers = {
+        "apikey": supabase_key,
+        "Authorization": f"Bearer {supabase_key}",
+    }
+
+    user_id_str = str(user_id)
+    async with httpx.AsyncClient() as client:
+        try:
+            trades_url = f"{supabase_url}/rest/v1/trades?select=id,symbol,action,quantity,price_executed,amount_usd,session_id,ai_trading_sessions!inner(user_id,created_at)&ai_trading_sessions.user_id=eq.{user_id_str}"
+            res = await client.get(trades_url, headers=headers)
+            res.raise_for_status()
+            raw_trades = res.json()
+
+            formatted_trades = []
+            for t in raw_trades:
+                session_info = t.get("ai_trading_sessions") or {}
+                created_at = session_info.get("created_at") or t.get("created_at") or t.get("timestamp") or datetime.now(timezone.utc).isoformat()
+
+                sym = t["symbol"].upper()
+                currency = "USD"
+                if sym.endswith((".MC", ".DE", ".PA")):
+                    currency = "EUR"
+                elif sym.endswith(".L"):
+                    currency = "GBp"
+
+                usd_rate = await MarketDataService.get_usd_exchange_rate(currency)
+                raw_price = float(t["price_executed"])
+                amt = float(t["amount_usd"])
+                raw_qty = float(t["quantity"])
+
+                if currency != "USD" and raw_price > 0 and amt > 0 and (raw_price < (amt / raw_qty) * 0.95 or abs((raw_price * raw_qty) - amt) < 1.0):
+                    price_usd = raw_price * usd_rate
+                    qty_usd = amt / price_usd if price_usd > 0 else raw_qty
+                else:
+                    price_usd = raw_price
+                    qty_usd = raw_qty
+
+                formatted_trades.append({
+                    "id": t["id"],
+                    "symbol": sym,
+                    "action": t["action"],
+                    "quantity": round(qty_usd, 4),
+                    "price_executed": round(price_usd, 2),
+                    "amount_usd": round(amt, 2),
+                    "created_at": created_at,
+                })
+
+            formatted_trades.sort(key=lambda x: x["created_at"], reverse=True)
+            return formatted_trades
+        except Exception as e:
+            logger.error(f"Error al obtener trades para usuario {user_id_str}: {e}")
+            return []

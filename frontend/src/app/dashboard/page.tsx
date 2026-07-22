@@ -79,41 +79,12 @@ export default function DashboardPage() {
   const fetchTrades = async () => {
     if (!user) return;
     try {
-      const { data, error } = await supabase
-        .from("trades")
-        .select(`
-          id,
-          symbol,
-          action,
-          quantity,
-          price_executed,
-          amount_usd,
-          ai_trading_sessions!inner(
-            user_id,
-            created_at
-          )
-        `)
-        .eq("ai_trading_sessions.user_id", user.id);
-
-      if (!error && data) {
-        const formattedTrades: DatabaseTrade[] = (data as any[]).map((t) => {
-          const session = t.ai_trading_sessions || {};
-          return {
-            id: t.id,
-            symbol: t.symbol,
-            action: t.action as "BUY" | "SELL",
-            quantity: Number(t.quantity),
-            price_executed: Number(t.price_executed),
-            amount_usd: Number(t.amount_usd),
-            created_at: session.created_at || new Date().toISOString(),
-          };
-        });
-
-        formattedTrades.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-        setTrades(formattedTrades);
+      const res = await apiClient.get<DatabaseTrade[]>(`/trading/trades/${user.id}`);
+      if (res.data && Array.isArray(res.data)) {
+        setTrades(res.data);
       }
     } catch (err) {
-      console.error("Error al cargar trades de Supabase:", err);
+      console.error("Error al cargar trades en dashboard:", err);
     }
   };
 
