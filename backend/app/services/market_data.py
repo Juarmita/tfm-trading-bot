@@ -123,6 +123,16 @@ def set_cached_data(key: str, value: Any, max_age_seconds: int) -> None:
     memory_cache.set(key, value)
 
 
+def delete_cached_data(key: str) -> None:
+    if redis_client:
+        try:
+            redis_client.delete(key)
+        except Exception:
+            pass
+    if key in memory_cache._cache:
+        del memory_cache._cache[key]
+
+
 # -------------------------------------------------------------------------
 # 3. RATE LIMITING LOCAL (Token Bucket por Símbolo)
 # -------------------------------------------------------------------------
@@ -181,14 +191,20 @@ class MarketDataService:
                 delay *= 2.0
 
     @classmethod
+    def invalidate_quote_cache(cls, symbol: str) -> None:
+        """Invalida inmediatamente la caché de cotización para forzar un refresco live tras ejecutar órdenes."""
+        cache_key = f"quote:{symbol.upper()}"
+        delete_cached_data(cache_key)
+
+    @classmethod
     async def get_quote(cls, symbol: str) -> Quote:
         # 1. Comprobar Rate Limiting
         if not rate_limiter.consume(symbol):
             raise ValueError(f"Límite de solicitudes superado (Rate Limit: 60/min) para: {symbol}")
 
-        # 2. Comprobar Caché (10 minutos para Quotes)
+        # 2. Comprobar Caché (15 segundos para Quotes en tiempo real)
         cache_key = f"quote:{symbol.upper()}"
-        cached = get_cached_data(cache_key, 600)
+        cached = get_cached_data(cache_key, 15)
         start_time = time.time()
 
         if cached:
@@ -234,7 +250,7 @@ class MarketDataService:
             # Serializar y almacenar en caché
             cache_val = quote.model_dump()
             cache_val["timestamp"] = quote.timestamp.isoformat()
-            set_cached_data(cache_key, cache_val, 600)
+            set_cached_data(cache_key, cache_val, 15)
 
             log_structured(symbol, False, (time.time() - start_time) * 1000, "yfinance")
             return quote

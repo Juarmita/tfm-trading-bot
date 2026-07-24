@@ -316,6 +316,7 @@ async def execute_trading_plan(
         # 2. Guardar las transacciones liquidadas (trades) reportadas por el broker con fecha y hora actual
         for report in execution_reports:
             if report.status == "filled":
+                MarketDataService.invalidate_quote_cache(report.symbol)
                 await save_trade_to_supabase(
                     trade_id=report.order_id,
                     session_id=decision_output.session_id,
@@ -372,74 +373,76 @@ class PortfolioResponse(BaseModel):
     news: List[NewsItem]
 
 
+# -------------------------------------------------------------------------
+# PORTFOLIO ENDPOINT (/portfolio/{user_id})
+# -------------------------------------------------------------------------
+
+
 @router.get("/portfolio/{user_id}", response_model=PortfolioResponse)
 async def get_portfolio(
-    user_id: UUID, current_user_id: Optional[str] = Depends(get_current_user_id)
+    user_id: UUID,
+    current_user_id: Optional[str] = Depends(get_current_user_id),
 ) -> PortfolioResponse:
     """
-    Obtiene el portafolio del usuario calculando dinámicamente posiciones, ROI actual y noticias relacionadas.
+    Construye la posición actual del usuario a partir del historial de trades liquidados en Supabase.
+    Recupera precios actuales en vivo desde yfinance para calcular PnL y valor de mercado.
     """
     if current_user_id and str(user_id) != current_user_id:
         raise HTTPException(
-            status_code=403, detail="No tienes autorización para acceder al portafolio de este usuario."
+            status_code=403, detail="No tienes autorización para acceder a la cartera de este usuario."
         )
 
     supabase_url = os.getenv("NEXT_PUBLIC_SUPABASE_URL")
     supabase_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 
     if not supabase_url or not supabase_key:
-        # Fallback de desarrollo local si no hay Supabase
-        # Devolver un portafolio de prueba
+        mock_summary = {
+            "total_account_value": 15420.50,
+            "cash_balance": 5800.00,
+            "invested_capital": 9620.50,
+            "total_unrealized_pnl": 420.50,
+            "total_unrealized_pnl_pct": 4.56,
+            "daily_pnl": 125.30,
+            "daily_pnl_pct": 0.82,
+        }
         mock_positions = [
             PositionModel(
                 symbol="AAPL",
-                quantity=10.0,
-                average_price=175.0,
-                current_price=180.0,
-                market_value=1800.0,
-                cost_basis=1750.0,
-                profit_loss=50.0,
-                profit_loss_pct=2.86,
+                quantity=35.0,
+                average_price=175.50,
+                current_price=188.20,
+                market_value=6587.00,
+                cost_basis=6142.50,
+                profit_loss=444.50,
+                profit_loss_pct=7.24,
             ),
             PositionModel(
-                symbol="TSLA",
-                quantity=5.0,
-                average_price=210.0,
-                current_price=220.0,
-                market_value=1100.0,
-                cost_basis=1050.0,
-                profit_loss=50.0,
-                profit_loss_pct=4.76,
+                symbol="NVDA",
+                quantity=2.5,
+                average_price=1200.00,
+                current_price=1213.40,
+                market_value=3033.50,
+                cost_basis=3000.00,
+                profit_loss=33.50,
+                profit_loss_pct=1.12,
             ),
         ]
-        mock_summary = PortfolioSummary(
-            cash=10000.0,
-            total_positions_value=2900.0,
-            total_portfolio_value=12900.0,
-            total_cost_basis=2800.0,
-            total_profit_loss=100.0,
-            total_profit_loss_pct=3.57,
-        )
         mock_facts = [
-            PortfolioFact(
-                type="best_performer",
-                title="Mejor Rendimiento",
-                description="TSLA es tu activo más rentable con un retorno del +4.76%.",
-            ),
-            PortfolioFact(
+            FactModel(
+                id="f1",
                 type="concentration",
                 title="Concentración de Cartera",
                 description="AAPL representa el 62.07% del valor de tus inversiones.",
             ),
         ]
-        # Intentar obtener noticias mockeadas para AAPL
         mock_news = []
         try:
             mock_news = await MarketDataService.get_news("AAPL", limit=2)
         except Exception:
             pass
-
-        return PortfolioResponse(summary=mock_summary, positions=mock_positions, facts=mock_facts, news=mock_news)
+        return PortfolioResponse(
+            summary=mock_summary, positions=mock_positions, facts=mock_facts, news=mock_news
+        )
 
     headers = {"apikey": supabase_key, "Authorization": f"Bearer {supabase_key}"}
 
@@ -459,10 +462,9 @@ async def get_portfolio(
             trades_res.raise_for_status()
             db_trades = trades_res.json()
 
-            # 3. Calcular posiciones agrupando operaciones con Coste Medio Ponderado Dinámico y Normalización a USD
+            # 3. Calcular posiciones agrupando operaciones con Coste Medio Ponderado Dinámico
             symbols_data: Dict[str, Dict[str, Any]] = {}
 
-            # Ordenar trades cronológicamente si se dispone de timestamp
             sorted_trades = (
                 sorted(
                     db_trades,
@@ -480,28 +482,8 @@ async def get_portfolio(
                 session_info = t.get("ai_trading_sessions") or {}
                 trade_created_at = session_info.get("created_at") or t.get("created_at") or t.get("timestamp") or ""
 
-                # Detectar moneda del activo para conversión limpia a USD
-                currency = "USD"
-                if sym.endswith((".MC", ".DE", ".PA")):
-                    currency = "EUR"
-                elif sym.endswith(".L"):
-                    currency = "GBp"
-
-                usd_rate = await MarketDataService.get_usd_exchange_rate(currency)
-
-                # Si el activo no cotiza en USD y el precio ejecutado guardado en DB estaba en la moneda local:
-                # Normalizamos price_usd y qty para que todo el cálculo de posición sea 100% consistente en USD.
-                if (
-                    currency != "USD"
-                    and raw_price > 0
-                    and amt > 0
-                    and (raw_price < (amt / raw_qty) * 0.95 or abs((raw_price * raw_qty) - amt) < 1.0)
-                ):
-                    price_usd = raw_price * usd_rate
-                    qty = amt / price_usd if price_usd > 0 else raw_qty
-                else:
-                    price_usd = raw_price
-                    qty = raw_qty
+                price_usd = raw_price
+                qty = raw_qty
 
                 if sym not in symbols_data:
                     symbols_data[sym] = {"current_qty": 0.0, "total_cost_basis": 0.0, "created_at": trade_created_at}
