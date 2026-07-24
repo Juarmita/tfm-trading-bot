@@ -163,3 +163,63 @@ async def test_analyze_and_decide_short_history_succeeds(mock_ticker):
     # Debe completar con éxito sin lanzar ValueError
     assert isinstance(output, AIDecisionOutput)
     assert output.symbol == "NEWSTOCK"
+
+
+@pytest.mark.asyncio
+@patch("yfinance.Ticker")
+async def test_analyze_and_decide_sell_with_owned_shares(mock_ticker):
+    # Simular condiciones de sobrecompra (RSI > 70) para forzar un "SELL"
+    dates = pd.date_range(end="2026-07-18", periods=260)
+    prices = [100.0 + i * 2.0 for i in range(260)]  # Subida extrema -> RSI muy alto
+    df = pd.DataFrame(
+        {"Open": prices, "High": prices, "Low": prices, "Close": prices, "Volume": [10000] * 260}, index=dates
+    )
+
+    mock_instance = MagicMock()
+    mock_instance.history.return_value = df
+    mock_instance.info = {"forwardPE": 80.0, "dividendYield": 0.0, "debtToEquity": 150.0}
+    mock_ticker.return_value = mock_instance
+
+    user_id = uuid4()
+    # 1. Cuando el usuario posee 10 acciones y solicita venta TOTAL
+    output = await AIEngineService.analyze_and_decide(
+        user_id=user_id,
+        symbol="OVERBOUGHT",
+        strategy_type="short_term",
+        available_capital=Decimal("1000.00"),
+        user_owned_qty=10.0,
+        sell_option="all",
+    )
+
+    assert output.decision == "SELL"
+    assert len(output.orders) == 1
+    assert output.orders[0].action == "SELL"
+    assert output.orders[0].quantity == 10.0
+
+    # 2. Cuando el usuario posee 10 acciones y solicita venta PARCIAL al 50%
+    output_partial = await AIEngineService.analyze_and_decide(
+        user_id=user_id,
+        symbol="OVERBOUGHT",
+        strategy_type="short_term",
+        available_capital=Decimal("1000.00"),
+        user_owned_qty=10.0,
+        sell_option="partial",
+        sell_percentage=50.0,
+    )
+
+    assert output_partial.decision == "SELL"
+    assert len(output_partial.orders) == 1
+    assert output_partial.orders[0].action == "SELL"
+    assert output_partial.orders[0].quantity == 5.0
+
+    # 3. Cuando el usuario posee 0 acciones, la orden SELL debe convertirse a HOLD
+    output_zero = await AIEngineService.analyze_and_decide(
+        user_id=user_id,
+        symbol="OVERBOUGHT",
+        strategy_type="short_term",
+        available_capital=Decimal("1000.00"),
+        user_owned_qty=0.0,
+    )
+
+    assert output_zero.decision == "HOLD"
+    assert len(output_zero.orders) == 0

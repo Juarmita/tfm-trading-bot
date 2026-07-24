@@ -47,7 +47,13 @@ export function useInvestmentSession() {
     amount: number,
     strategyType: "long_term" | "short_term",
     symbol: string,
-    currency: "USD" | "EUR" | "GBP" | "CNY" = "USD"
+    currency: "USD" | "EUR" | "GBP" | "CNY" = "USD",
+    options?: {
+      orderMode?: "amount" | "shares";
+      sharesCount?: number;
+      sellOption?: "all" | "partial";
+      sellPercentage?: number;
+    }
   ) => {
     // Protección contra race conditions y double submits
     if (state === "validating" || state === "analyzing" || state === "executing") {
@@ -56,19 +62,6 @@ export function useInvestmentSession() {
 
     setError(null);
     setState("validating");
-
-    // Si la wallet no se ha cargado, usar saldo por defecto de $10,000 (igual que el dashboard)
-    const maxBalance = wallet?.balance ?? 10000;
-    const schema = createInvestmentSchema(maxBalance);
-    const result = schema.safeParse({ amount, strategyType, symbol });
-
-    if (!result.success) {
-      const errorMsg = result.error.errors[0]?.message || "Datos incorrectos.";
-      setError(errorMsg);
-      setState("idle");
-      toast.error(errorMsg);
-      return;
-    }
 
     if (!user) {
       const authError = "Sesión no detectada. Por favor, inicia sesión de nuevo.";
@@ -89,6 +82,10 @@ export function useInvestmentSession() {
         strategy_type: strategyType,
         available_capital: amount,
         currency: currency,
+        order_mode: options?.orderMode || "amount",
+        shares_count: options?.sharesCount,
+        sell_option: options?.sellOption || "all",
+        sell_percentage: options?.sellPercentage || 100,
       });
 
       setDecisionOutput(response.data);

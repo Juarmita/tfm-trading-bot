@@ -39,6 +39,11 @@ export default function InvestmentFlowDrawer({ isOpen, onClose }: InvestmentFlow
   const [marketRegion, setMarketRegion] = useState<string>("US");
   const [currency, setCurrency] = useState<"USD" | "EUR" | "GBP" | "CNY">("USD");
 
+  const [orderMode, setOrderMode] = useState<"amount" | "shares">("amount");
+  const [sharesCount, setSharesCount] = useState<string>("5");
+  const [sellOption, setSellOption] = useState<"all" | "partial">("all");
+  const [sellPercentage, setSellPercentage] = useState<string>("50");
+
   const currencySymbols: Record<string, string> = {
     USD: "$",
     EUR: "€",
@@ -79,12 +84,19 @@ export default function InvestmentFlowDrawer({ isOpen, onClose }: InvestmentFlow
   const handleRunAnalysis = (e: React.FormEvent) => {
     e.preventDefault();
     const parsedAmount = parseFloat(amount) || 0;
+    const parsedShares = parseFloat(sharesCount) || 0;
+    const parsedSellPct = parseFloat(sellPercentage) || 100;
     let finalSymbol = symbol.trim().toUpperCase();
     const suffix = marketSuffixes[marketRegion];
     if (suffix && !finalSymbol.includes(".")) {
       finalSymbol = `${finalSymbol}${suffix}`;
     }
-    executeAnalysis(parsedAmount, strategyType, finalSymbol, currency);
+    executeAnalysis(parsedAmount, strategyType, finalSymbol, currency, {
+      orderMode,
+      sharesCount: parsedShares,
+      sellOption,
+      sellPercentage: parsedSellPct,
+    });
   };
 
   return (
@@ -212,25 +224,124 @@ export default function InvestmentFlowDrawer({ isOpen, onClose }: InvestmentFlow
                 </div>
               </div>
 
-              {/* Monto a invertir */}
-              <div className="space-y-2">
+              {/* Modo de Operación: Por Monto o Por Acciones */}
+              <div className="space-y-3">
                 <label className="text-xs font-bold text-slate-300 uppercase tracking-wider block">
-                  Monto de capital a asignar ({currency})
+                  Modo de Operación
                 </label>
-                <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 font-mono font-bold">
-                    {currencySymbols[currency]}
-                  </span>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setOrderMode("amount")}
+                    className={`py-2.5 px-3 rounded-xl text-xs font-bold border transition ${
+                      orderMode === "amount"
+                        ? "bg-emerald-500/20 border-emerald-500 text-emerald-400"
+                        : "bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200"
+                    }`}
+                  >
+                    Por Monto ({currencySymbols[currency]})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setOrderMode("shares")}
+                    className={`py-2.5 px-3 rounded-xl text-xs font-bold border transition ${
+                      orderMode === "shares"
+                        ? "bg-emerald-500/20 border-emerald-500 text-emerald-400"
+                        : "bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200"
+                    }`}
+                  >
+                    Por Número de Acciones
+                  </button>
+                </div>
+              </div>
+
+              {/* Input dependiendo del Modo de Operación */}
+              {orderMode === "amount" ? (
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-300 uppercase tracking-wider block">
+                    Monto de capital a asignar ({currency})
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 font-mono font-bold">
+                      {currencySymbols[currency]}
+                    </span>
+                    <input
+                      type="number"
+                      min="1"
+                      required
+                      value={amount}
+                      onChange={(e) => setAmount(e.target.value)}
+                      placeholder="Monto a asignar"
+                      className="w-full pl-8 pr-4 py-3 bg-slate-950 border border-slate-800 rounded-xl focus:outline-none focus:border-emerald-500 transition text-slate-100 font-mono"
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-slate-300 uppercase tracking-wider block">
+                    Cantidad de Acciones a operar
+                  </label>
                   <input
                     type="number"
-                    min="100"
+                    min="0.0001"
+                    step="any"
                     required
-                    value={amount}
-                    onChange={(e) => setAmount(e.target.value)}
-                    placeholder="Mínimo 100"
-                    className="w-full pl-8 pr-4 py-3 bg-slate-950 border border-slate-800 rounded-xl focus:outline-none focus:border-emerald-500 transition text-slate-100 font-mono"
+                    value={sharesCount}
+                    onChange={(e) => setSharesCount(e.target.value)}
+                    placeholder="Ej: 5 o 10.5"
+                    className="w-full px-4 py-3 bg-slate-950 border border-slate-800 rounded-xl focus:outline-none focus:border-emerald-500 transition text-slate-100 font-mono"
                   />
                 </div>
+              )}
+
+              {/* Opciones de Venta (si el bot recomienda VENDER o para liquidez) */}
+              <div className="space-y-3 bg-slate-950/60 p-4 border border-slate-800/80 rounded-2xl">
+                <label className="text-xs font-bold text-slate-300 uppercase tracking-wider block flex items-center justify-between">
+                  <span>Preferencia en caso de VENTA</span>
+                  <span className="text-[10px] text-slate-500 lowercase font-normal">(si tienes tenencias)</span>
+                </label>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setSellOption("all")}
+                    className={`py-2 px-3 rounded-xl text-xs font-bold border transition ${
+                      sellOption === "all"
+                        ? "bg-red-500/20 border-red-500 text-red-400"
+                        : "bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200"
+                    }`}
+                  >
+                    Vender Todo (100%)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSellOption("partial")}
+                    className={`py-2 px-3 rounded-xl text-xs font-bold border transition ${
+                      sellOption === "partial"
+                        ? "bg-red-500/20 border-red-500 text-red-400"
+                        : "bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200"
+                    }`}
+                  >
+                    Venta Parcial (50%)
+                  </button>
+                </div>
+
+                {sellOption === "partial" && (
+                  <div className="space-y-1.5 pt-2">
+                    <label className="text-[11px] text-slate-400 font-semibold block">
+                      Porcentaje de posición a liquidar: {sellPercentage}%
+                    </label>
+                    <input
+                      type="range"
+                      min="10"
+                      max="90"
+                      step="5"
+                      value={sellPercentage}
+                      onChange={(e) => setSellPercentage(e.target.value)}
+                      className="w-full accent-red-500 cursor-pointer"
+                    />
+                  </div>
+                )}
               </div>
 
               {/* Selector de Estrategia */}
