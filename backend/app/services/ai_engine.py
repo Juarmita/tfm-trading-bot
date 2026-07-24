@@ -78,6 +78,12 @@ class MarketDataSnapshot(BaseModel):
     usd_rate: float
     concentration: float
     correlation: float
+    user_owned_qty: float = 0.0
+    order_mode: str = "amount"
+    shares_count: Optional[float] = None
+    sell_option: str = "all"
+    sell_percentage: Optional[float] = 100.0
+    target_currency_usd_rate: float = 1.0
 
 
 # -------------------------------------------------------------------------
@@ -378,38 +384,82 @@ class AIEngineService:
                 else:
                     decision = "HOLD"
 
-        # Aplicar restricciones de Gestión de Riesgo sobre la decisión BUY
-        final_capital = float(available_capital)
-        confidence = float(score) / 10.0 if decision != "HOLD" else 0.5
-        confidence = min(max(confidence, 0.0), 1.0)
-
-        if decision == "BUY":
-            if concentration_penalty:
-                decision = "HOLD"
-                confidence = 0.3
-                final_capital = 0.0
-            else:
-                if drawdown_penalty:
-                    final_capital *= 0.5
-                if correlation_penalty:
-                    final_capital *= 0.8
-
         currency = snapshot.currency
         usd_rate = snapshot.usd_rate
         price_usd = price * usd_rate
 
-        qty = (final_capital / price_usd) if price_usd > 0 and final_capital > 0 else 0.0
+        # 4. Conversión de capital objetivo (divisa de la interfaz a USD)
+        target_usd_rate = snapshot.target_currency_usd_rate
+        available_capital_usd = float(available_capital) * target_usd_rate
+
+        confidence = float(score) / 10.0 if decision != "HOLD" else 0.5
+        confidence = min(max(confidence, 0.0), 1.0)
+
+        final_capital = available_capital_usd
+        qty = 0.0
+        sell_note = ""
+
+        if decision == "BUY":
+            if snapshot.order_mode == "shares" and snapshot.shares_count and snapshot.shares_count > 0:
+                qty = float(snapshot.shares_count)
+                final_capital = qty * price_usd
+            else:
+                qty = (available_capital_usd / price_usd) if price_usd > 0 else 0.0
+                final_capital = available_capital_usd
+
+            if concentration_penalty:
+                decision = "HOLD"
+                confidence = 0.3
+                final_capital = 0.0
+                qty = 0.0
+            else:
+                if drawdown_penalty:
+                    final_capital *= 0.5
+                    qty *= 0.5
+                if correlation_penalty:
+                    final_capital *= 0.8
+                    qty *= 0.8
+
+        elif decision == "SELL":
+            user_owned_qty = snapshot.user_owned_qty
+            if user_owned_qty > 0:
+                if snapshot.sell_option == "all":
+                    qty = user_owned_qty
+                    sell_note = f"Venta TOTAL del 100% de la posición poseída ({qty:.4f} acciones)."
+                else:  # partial
+                    if snapshot.shares_count and snapshot.shares_count > 0:
+                        qty = min(user_owned_qty, float(snapshot.shares_count))
+                    elif snapshot.sell_percentage and snapshot.sell_percentage > 0:
+                        qty = user_owned_qty * (float(snapshot.sell_percentage) / 100.0)
+                    elif snapshot.order_mode == "amount" and price_usd > 0:
+                        requested_qty = available_capital_usd / price_usd
+                        qty = min(user_owned_qty, requested_qty)
+                    else:
+                        qty = user_owned_qty
+                    sell_note = f"Venta PARCIAL de {qty:.4f} acciones sobre un total de {user_owned_qty:.4f} acciones poseídas."
+
+                final_capital = qty * price_usd
+            else:
+                decision = "HOLD"
+                qty = 0.0
+                final_capital = 0.0
+                sell_note = f"Se detectó señal de VENTA, pero actualmente posees 0 acciones de {symbol_upper} en tu portafolio. Orden omitida."
 
         orders: List[ExecutionOrder] = []
         if decision != "HOLD" and qty > 0:
+            order_reason = (
+                f"Ejecución de orden de COMPRA por estrategia {strategy_type}."
+                if decision == "BUY"
+                else f"Ejecución de VENTA ({snapshot.sell_option.upper()}): {sell_note}"
+            )
             orders.append(
                 ExecutionOrder(
                     action=decision,
                     symbol=symbol_upper,
                     quantity=round(qty, 4),
                     price_estimated=round(price_usd, 2),
-                    amount_usd=round(qty * price_usd, 2),
-                    reason=f"Ejecución de orden automática gatillada por estrategia {strategy_type}.",
+                    amount_usd=round(final_capital, 2),
+                    reason=order_reason,
                 )
             )
 
@@ -499,6 +549,11 @@ class AIEngineService:
         available_capital: Decimal,
         target_currency: str = "USD",
         max_iterations: int = 3,
+        user_owned_qty: float = 0.0,
+        order_mode: str = "amount",
+        shares_count: Optional[float] = None,
+        sell_option: str = "all",
+        sell_percentage: Optional[float] = 100.0,
     ) -> AIDecisionOutput:
         """Orquestador de Aplicación (Clean Infrastructure/App Layer).
 
@@ -566,6 +621,7 @@ class AIEngineService:
                 currency = "GBp"
 
         usd_rate = await MarketDataService.get_usd_exchange_rate(currency)
+        target_currency_usd_rate = await MarketDataService.get_usd_exchange_rate(target_currency)
         concentration = cls.get_portfolio_concentration(user_id, symbol_upper)
         correlation = await cls.get_portfolio_correlation_dynamic(df, symbol_upper)
 
@@ -577,6 +633,12 @@ class AIEngineService:
             usd_rate=usd_rate,
             concentration=concentration,
             correlation=correlation,
+            user_owned_qty=user_owned_qty,
+            order_mode=order_mode,
+            shares_count=shares_count,
+            sell_option=sell_option,
+            sell_percentage=sell_percentage,
+            target_currency_usd_rate=target_currency_usd_rate,
         )
 
         return cls.evaluate_quantitative_strategy(

@@ -32,6 +32,10 @@ export interface AnalyzeRequest {
   available_capital: number;
   currency?: "USD" | "EUR" | "GBP" | "CNY";
   max_iterations?: number;
+  order_mode?: "amount" | "shares";
+  shares_count?: number;
+  sell_option?: "all" | "partial";
+  sell_percentage?: number;
 }
 
 export interface PositionModel {

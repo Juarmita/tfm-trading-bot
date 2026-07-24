@@ -409,15 +409,14 @@ class MarketDataService:
             cls._exchange_rates_cache = {}
             cls._exchange_rates_timestamp = {}
 
-        if not currency:
-            return 1.0
+        raw_curr = currency.strip()
+        currency_upper = raw_curr.upper()
 
-        currency_upper = currency.upper().strip()
         if currency_upper in ("USD", "U.S. DOLLAR", "$"):
             return 1.0
 
-        # Identificar si es peniques (GBp o GBX)
-        is_pence = currency_upper in ("GBp", "GBX", "PENCE")
+        # Identificar si es peniques (GBp o GBX) sobre el formato original antes de upper()
+        is_pence = raw_curr in ("GBp", "GBX", "pence", "Pence") or (raw_curr.endswith("p") and len(raw_curr) <= 3 and raw_curr != "GBP")
         lookup_curr = "GBP" if is_pence else currency_upper
 
         now = time.time()

@@ -95,10 +95,11 @@ class DemoBroker(IBrokerAdapter):
         slippage_usd = (fill_price - order.price_estimated) * order.quantity
 
         # Actualizar fondos en Supabase si aplica (Transacción virtual)
+        actual_total = order.quantity * fill_price
         if order.action == "BUY":
-            await self._update_supabase_balance(order.user_id, -total_cost)
+            await self._update_supabase_balance(order.user_id, -actual_total)
         elif order.action == "SELL":
-            await self._update_supabase_balance(order.user_id, total_cost)
+            await self._update_supabase_balance(order.user_id, actual_total)
 
         latency = (time.time() - start_time) * 1000.0
 

@@ -88,6 +88,10 @@ class AnalyzeRequest(BaseModel):
         "USD", description="Moneda de preferencia para la operación: USD, EUR, GBP, CNY"
     )
     max_iterations: int = Field(3, description="Número máximo de reintentos o iteraciones del motor", ge=1, le=10)
+    order_mode: Literal["amount", "shares"] = Field("amount", description="Modo de orden: por monto o por acciones")
+    shares_count: Optional[float] = Field(None, description="Número de acciones deseado si order_mode es shares")
+    sell_option: Literal["all", "partial"] = Field("all", description="Opción de venta: all (100%) o partial")
+    sell_percentage: Optional[float] = Field(100.0, description="Porcentaje a vender en venta parcial (ej: 50.0)")
 
 
 # -------------------------------------------------------------------------
@@ -210,7 +214,30 @@ async def analyze_trading(
             status_code=403, detail="No tienes autorización para operar bajo la identidad de este usuario."
         )
     try:
-        # 1. Ejecutar el análisis y toma de decisiones del motor de IA
+        # 1. Obtener la cantidad actual de acciones poseídas por el usuario para este símbolo
+        user_owned_qty = 0.0
+        supabase_url = os.getenv("NEXT_PUBLIC_SUPABASE_URL")
+        supabase_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
+
+        if supabase_url and supabase_key:
+            headers = {"apikey": supabase_key, "Authorization": f"Bearer {supabase_key}"}
+            async with httpx.AsyncClient() as client:
+                try:
+                    trades_url = f"{supabase_url}/rest/v1/trades?select=symbol,action,quantity,ai_trading_sessions!inner(user_id)&ai_trading_sessions.user_id=eq.{request.user_id}&symbol=eq.{request.symbol.upper()}"
+                    res = await client.get(trades_url, headers=headers)
+                    if res.status_code == 200:
+                        trades_data = res.json()
+                        for t in trades_data:
+                            act = t.get("action")
+                            qty = float(t.get("quantity") or 0.0)
+                            if act == "BUY":
+                                user_owned_qty += qty
+                            elif act == "SELL":
+                                user_owned_qty = max(0.0, user_owned_qty - qty)
+                except Exception as e:
+                    logger.warning(f"No se pudo consultar la posición previa para {request.symbol}: {e}")
+
+        # 2. Ejecutar el análisis y toma de decisiones del motor de IA
         decision_output = await AIEngineService.analyze_and_decide(
             user_id=request.user_id,
             symbol=request.symbol,
@@ -218,14 +245,24 @@ async def analyze_trading(
             available_capital=request.available_capital,
             target_currency=request.currency,
             max_iterations=request.max_iterations,
+            user_owned_qty=user_owned_qty,
+            order_mode=request.order_mode,
+            shares_count=request.shares_count,
+            sell_option=request.sell_option,
+            sell_percentage=request.sell_percentage,
         )
 
-        # 2. Guardar sesión de análisis en Supabase en estado 'pending' (sin ejecutar aún en broker)
+        # 3. Guardar sesión de análisis en Supabase en estado 'pending' (sin ejecutar aún en broker)
         input_snapshot = {
             "symbol": request.symbol.upper(),
             "available_capital": float(request.available_capital),
             "strategy": request.strategy_type,
             "currency": request.currency,
+            "user_owned_qty": user_owned_qty,
+            "order_mode": request.order_mode,
+            "shares_count": request.shares_count,
+            "sell_option": request.sell_option,
+            "sell_percentage": request.sell_percentage,
         }
 
         execution_plan = [order.model_dump() for order in decision_output.orders]
