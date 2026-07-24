@@ -27,6 +27,7 @@ import {
   Pencil,
   Check,
   X,
+  Globe,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -72,6 +73,13 @@ export default function PortfolioPage() {
   useEffect(() => {
     if (mounted && user) {
       fetchPortfolio();
+
+      // Auto-refresco en tiempo real (polling cada 12s con yfinance)
+      const intervalId = setInterval(() => {
+        fetchPortfolio();
+      }, 12000);
+
+      return () => clearInterval(intervalId);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mounted, user]);
@@ -219,6 +227,13 @@ export default function PortfolioPage() {
           </div>
 
           <nav className="space-y-1">
+            <Link
+              href="/home"
+              className="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-900/50 transition font-medium text-xs"
+            >
+              <Globe size={18} />
+              <span>Inicio (Mercados)</span>
+            </Link>
             <Link
               href="/dashboard"
               className="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-900/50 transition font-medium"

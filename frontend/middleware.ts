@@ -7,7 +7,7 @@ export async function middleware(request: NextRequest) {
   const allCookies = request.cookies.getAll();
   const hasSession = allCookies.some((cookie) => cookie.name.startsWith("sb-"));
 
-  const protectedPaths = ["/dashboard", "/invest", "/portfolio"];
+  const protectedPaths = ["/home", "/dashboard", "/invest", "/portfolio"];
   const currentPath = request.nextUrl.pathname;
   
   const isProtectedPath = protectedPaths.some((path) =>
@@ -28,6 +28,7 @@ export async function middleware(request: NextRequest) {
 // Configuración de rutas a interceptar por el Middleware de Next.js
 export const config = {
   matcher: [
+    "/home/:path*",
     "/dashboard/:path*",
     "/invest/:path*",
     "/portfolio/:path*",

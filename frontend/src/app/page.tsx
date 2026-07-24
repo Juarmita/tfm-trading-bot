@@ -132,10 +132,10 @@ export default function LandingPage() {
             <Github size={20} />
           </Link>
           <Link
-            href={user ? "/dashboard" : "/login"}
+            href={user ? "/home" : "/login"}
             className="bg-slate-900 border border-slate-800 hover:bg-slate-800 text-slate-200 font-semibold px-4 py-2 rounded-lg text-sm transition active:scale-95"
           >
-            {user ? "Ir al Panel" : "Iniciar Sesión"}
+            {user ? "Ir al Inicio" : "Iniciar Sesión"}
           </Link>
         </div>
       </header>
@@ -162,10 +162,10 @@ export default function LandingPage() {
         {/* Acceso al Panel */}
         <div className="flex justify-center pt-2">
           <Link
-            href={user ? "/dashboard" : "/login"}
+            href={user ? "/home" : "/login"}
             className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold px-8 py-4 rounded-xl shadow-lg shadow-emerald-500/10 hover:shadow-emerald-400/20 active:scale-[0.98] transition flex items-center justify-center gap-2 group text-base"
           >
-            <span>Acceder al Panel de Control</span>
+            <span>Acceder a la Plataforma</span>
             <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
           </Link>
         </div>

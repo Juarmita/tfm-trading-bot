@@ -28,12 +28,26 @@ export default function InvestPage() {
               <p className="text-xs text-slate-400">TFM Bot de Trading</p>
             </div>
           </div>
-          <Link
-            href="/dashboard"
-            className="text-sm text-slate-400 hover:text-white transition font-medium"
-          >
-            Volver al Panel
-          </Link>
+          <div className="flex items-center gap-4">
+            <Link
+              href="/home"
+              className="text-xs text-slate-400 hover:text-white transition font-medium"
+            >
+              Inicio (Mercados)
+            </Link>
+            <Link
+              href="/dashboard"
+              className="text-xs text-slate-400 hover:text-white transition font-medium"
+            >
+              Panel de Control
+            </Link>
+            <Link
+              href="/portfolio"
+              className="text-xs text-slate-400 hover:text-white transition font-medium"
+            >
+              Mi Portafolio
+            </Link>
+          </div>
         </header>
 
         {/* Contenido Principal */}

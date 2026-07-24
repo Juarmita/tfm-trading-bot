@@ -26,6 +26,7 @@ import {
   X,
   Cpu,
   CheckCircle2,
+  Globe,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -114,7 +115,14 @@ export default function DashboardPage() {
     fetchTrades();
     fetchPortfolio();
 
-    // Escuchar actualizaciones de trades en tiempo real
+    // Auto-refresco periódico en segundo plano (polling cada 12s para cotizaciones live)
+    const intervalId = setInterval(() => {
+      fetchTrades();
+      fetchPortfolio();
+      checkConnection();
+    }, 12000);
+
+    // Escuchar actualizaciones de trades en tiempo real vía Supabase
     const tradesChannel = supabase
       .channel(`trades-dashboard-updates-${user.id}`)
       .on(
@@ -133,6 +141,7 @@ export default function DashboardPage() {
       .subscribe();
 
     return () => {
+      clearInterval(intervalId);
       supabase.removeChannel(tradesChannel);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -373,6 +382,13 @@ export default function DashboardPage() {
           </div>
 
           <nav className="space-y-1">
+            <Link
+              href="/home"
+              className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-900/60 text-xs font-medium transition"
+            >
+              <Globe size={16} />
+              <span>Inicio (Mercados)</span>
+            </Link>
             <Link
               href="/dashboard"
               className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs font-semibold transition"

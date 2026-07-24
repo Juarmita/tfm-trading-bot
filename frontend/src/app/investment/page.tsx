@@ -30,6 +30,12 @@ export default function InvestmentPage() {
           </div>
           <div className="flex items-center gap-3">
             <Link
+              href="/home"
+              className="text-xs text-slate-400 hover:text-white transition font-medium"
+            >
+              Inicio (Mercados)
+            </Link>
+            <Link
               href="/dashboard"
               className="text-xs text-slate-400 hover:text-white transition font-medium"
             >
