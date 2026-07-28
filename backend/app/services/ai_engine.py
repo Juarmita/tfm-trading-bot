@@ -436,7 +436,9 @@ class AIEngineService:
                         qty = min(user_owned_qty, requested_qty)
                     else:
                         qty = user_owned_qty
-                    sell_note = f"Venta PARCIAL de {qty:.4f} acciones sobre un total de {user_owned_qty:.4f} acciones poseídas."
+                    sell_note = (
+                        f"Venta PARCIAL de {qty:.4f} acciones sobre un total de {user_owned_qty:.4f} acciones poseídas."
+                    )
 
                 final_capital = qty * price_usd
             else:

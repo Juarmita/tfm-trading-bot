@@ -388,9 +388,7 @@ async def get_portfolio(
     Recupera precios actuales en vivo desde yfinance para calcular PnL y valor de mercado.
     """
     if current_user_id and str(user_id) != current_user_id:
-        raise HTTPException(
-            status_code=403, detail="No tienes autorización para acceder a la cartera de este usuario."
-        )
+        raise HTTPException(status_code=403, detail="No tienes autorización para acceder a la cartera de este usuario.")
 
     supabase_url = os.getenv("NEXT_PUBLIC_SUPABASE_URL")
     supabase_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
@@ -439,9 +437,7 @@ async def get_portfolio(
             mock_news = await MarketDataService.get_news("AAPL", limit=2)
         except Exception:
             pass
-        return PortfolioResponse(
-            summary=mock_summary, positions=mock_positions, facts=mock_facts, news=mock_news
-        )
+        return PortfolioResponse(summary=mock_summary, positions=mock_positions, facts=mock_facts, news=mock_news)
 
     headers = {"apikey": supabase_key, "Authorization": f"Bearer {supabase_key}"}
 

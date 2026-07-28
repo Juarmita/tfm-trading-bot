@@ -432,7 +432,9 @@ class MarketDataService:
             return 1.0
 
         # Identificar si es peniques (GBp o GBX) sobre el formato original antes de upper()
-        is_pence = raw_curr in ("GBp", "GBX", "pence", "Pence") or (raw_curr.endswith("p") and len(raw_curr) <= 3 and raw_curr != "GBP")
+        is_pence = raw_curr in ("GBp", "GBX", "pence", "Pence") or (
+            raw_curr.endswith("p") and len(raw_curr) <= 3 and raw_curr != "GBP"
+        )
         lookup_curr = "GBP" if is_pence else currency_upper
 
         now = time.time()
