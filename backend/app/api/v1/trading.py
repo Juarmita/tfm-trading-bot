@@ -428,8 +428,7 @@ async def get_portfolio(
             ),
         ]
         mock_facts = [
-            FactModel(
-                id="f1",
+            PortfolioFact(
                 type="concentration",
                 title="Concentración de Cartera",
                 description="AAPL representa el 62.07% del valor de tus inversiones.",
@@ -476,14 +475,10 @@ async def get_portfolio(
             for t in sorted_trades:
                 sym = t["symbol"].upper()
                 act = t["action"]
-                raw_qty = float(t["quantity"])
-                raw_price = float(t["price_executed"])
+                qty = float(t["quantity"])
                 amt = float(t["amount_usd"])
                 session_info = t.get("ai_trading_sessions") or {}
                 trade_created_at = session_info.get("created_at") or t.get("created_at") or t.get("timestamp") or ""
-
-                price_usd = raw_price
-                qty = raw_qty
 
                 if sym not in symbols_data:
                     symbols_data[sym] = {"current_qty": 0.0, "total_cost_basis": 0.0, "created_at": trade_created_at}
