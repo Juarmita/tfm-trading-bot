@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Defensa TFM - Bot de Trading Cuantitativo</title>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+
+  <!-- Stylesheet -->
+  <link rel="stylesheet" href="styles.css">
+
+  <!-- Mermaid JS for Architecture & ERD Diagrams -->
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <script>
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: 'dark',
+      themeVariables: {
+        darkMode: true,
+        background: '#0f172a',
+        primaryColor: '#1c2541',
+        primaryTextColor: '#f8fafc',
+        primaryBorderColor: '#10b981',
+        lineColor: '#6366f1',
+        secondaryColor: '#0b132b',
+        tertiaryColor: '#1e293b'
+      }
+    });
+  </script>
+</head>
+<body>
+
+  <!-- Header / Top Bar -->
+  <header class="top-bar">
+    <div class="brand">
+      <span class="brand-badge">TFM 2026</span>
+      <span>Bot de Trading Cuantitativo Explicativo</span>
+    </div>
+    <div class="controls-hint">
+      <span><span class="key-badge">←</span> <span class="key-badge">→</span> Navegar</span>
+      <span><span class="key-badge">F</span> Pantalla Completa</span>
+      <span><span class="key-badge">N</span> Notas</span>
+    </div>
+  </header>
+
+  <!-- Top Progress Bar -->
+  <div class="progress-bar-container">
+    <div class="progress-bar-fill" id="progress-bar-fill"></div>
+  </div>
+
+  <!-- Main Deck Container -->
+  <main class="deck-container" id="deck-container">
+
+    <!-- ==================== SLIDE 1 ==================== -->
+    <section class="slide active" data-notes="Buenas tardes a los miembros del tribunal. Mi nombre es Juan Manuel Garcia Jurado y les presento la defensa de mi TFM 'Sistema de Inversión Automatizada Cuantitativa'. El objetivo de esta plataforma es combinar análisis algorítmico, gestión estricta del riesgo y total explicabilidad en tiempo real.">
+      <div class="slide-header">
+        <div class="slide-category">TRABAJO DE FIN DE MÁSTER (TFM) • CONVOCATORIA 2026</div>
+        <h1 class="slide-title">Sistema de Inversión Automatizada Cuantitativa</h1>
+      </div>
+      <div class="slide-content">
+        <div class="card">
+          <div class="card-header">
+            <span class="card-icon">🎯</span>
+            <span>Detalles del Proyecto</span>
+          </div>
+          <ul>
+            <li><strong>Autor:</strong> Juan Manuel Garcia Jurado</li>
+            <li><strong>Enfoque:</strong> Negociación Cuantitativa Explicable + Desacoplamiento de Brokers + Gestión Multicapa de Riesgos.</li>
+            <li><strong>Tecnologías Core:</strong> Next.js 15 (React 19), FastAPI (Python), Supabase (PostgreSQL + Realtime), TailwindCSS.</li>
+            <li><strong>Despliegue Producción:</strong> <a href="https://frontend-five-kohl-4rc8ugx0s0.vercel.app/" target="_blank" style="color: var(--accent-emerald); text-decoration: underline;">Vercel Demo Online ↗</a></li>
+          </ul>
+          <div class="highlight-box">
+            <strong>Arquitectura Desacoplada:</strong> Permite conectar el motor cuantitativo a cualquier broker profesional (Alpaca, IBKR) sin refactorizar la lógica analítica.
+          </div>
+        </div>
+        <div class="media-container">
+          <img src="assets/landing_page.png" alt="Landing Page TFM Trading Bot">
+          <div class="media-caption">
+            <span>Vista Principal de la Plataforma (Producción)</span>
+            <span>Haz clic para ampliar 🔍</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== SLIDE 2 ==================== -->
+    <section class="slide" data-notes="El problema central en el trading retail es la opacidad. La mayoría de los bots operan como cajas negras: ejecutan operaciones sin justificar por qué ni evaluar si el portafolio del usuario está sobreconcentrado. Nuestra propuesta elimina la opacidad aportando trazabilidad total.">
+      <div class="slide-header">
+        <div class="slide-category">PROBLEMATICAY MOTIVACIÓN</div>
+        <h1 class="slide-title">El Fenómeno de "Caja Negra" en Bots Retail</h1>
+      </div>
+      <div class="slide-content">
+        <div class="card">
+          <div class="card-header">
+            <span class="card-icon">⚠️</span>
+            <span>Limitaciones en Herramientas Actuales</span>
+          </div>
+          <ul>
+            <li><strong>Opacidad Analítica (Black Box):</strong> Los bots comerciales toman decisiones de compra/venta sin explicar los criterios técnicos o fundamentales utilizados.</li>
+            <li><strong>Ausencia de Gestión Holística de Riesgo:</strong> Se ejecutan órdenes aisladas sin considerar la correlación de activos ni el límite de concentración por emisor.</li>
+            <li><strong>Acoplamiento Rígido:</strong> Lógica de trading estrechamente ligada a APIs propietarias (MetaTrader, Binance), dificultando la migración.</li>
+          </ul>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <span class="card-icon">💡</span>
+            <span>Solución Desarrollada en este TFM</span>
+          </div>
+          <ul>
+            <li><strong>Explicabilidad IA (Explainable AI):</strong> Justificaciones cuantitativas detalladas redactadas en Markdown estructurado tras cada análisis.</li>
+            <li><strong>Filtros Estrictos de Riesgo:</strong> Límites automáticos de sobreconcentración (máx. 30%) y penalizaciones por Drawdown histórico (> 25%).</li>
+            <li><strong>Patrón Adapter (Broker-Ready):</strong> Abstracción completa entre el motor de scoring y las APIs de ejecución transaccional.</li>
+          </ul>
+          <div class="highlight-box">
+            <strong>Criterio Clave:</strong> Transparencia absoluta ante el inversor sobre el porqué de cada recomendación financiera.
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== SLIDE 3 ==================== -->
+    <section class="slide" data-notes="Definimos cuatro pilares fundamentales: Explicabilidad cuantitativa, arquitectura broker-ready modular, seguridad matemática del capital y sincronización reactiva en tiempo real.">
+      <div class="slide-header">
+        <div class="slide-category">OBJETIVOS Y ALCANCE</div>
+        <h1 class="slide-title">Pilares Fundamentales de la Plataforma</h1>
+      </div>
+      <div class="slide-content">
+        <div class="card">
+          <div class="card-header"><span class="card-icon">📊</span> Pilar 1: Explicabilidad Cuantitativa</div>
+          <p style="color: #cbd5e1; font-size: 0.9rem; margin-bottom: 0.5rem;">Generación de reportes detallados y reproducibles basados en 90 días de datos técnicos y fundamentales.</p>
+          <div class="highlight-box">Markdown con pesos, RSI, PER y Score final</div>
+        </div>
+        <div class="card">
+          <div class="card-header"><span class="card-icon">🔌</span> Pilar 2: Arquitectura Desacoplada</div>
+          <p style="color: #cbd5e1; font-size: 0.9rem; margin-bottom: 0.5rem;">Patrón de diseño <code>IBrokerAdapter</code> para aislar el motor analítico de las APIs transaccionales.</p>
+          <div class="highlight-box">Listo para Alpaca / Interactive Brokers</div>
+        </div>
+        <div class="card">
+          <div class="card-header"><span class="card-icon">🛡️</span> Pilar 3: Seguridad Multicapa de Capital</div>
+          <p style="color: #cbd5e1; font-size: 0.9rem; margin-bottom: 0.5rem;">Reglas matemáticas en tiempo de ejecución para prevenir sobreexposición y drawdowns severos.</p>
+          <div class="highlight-box">Control dinámico de exposición</div>
+        </div>
+        <div class="card">
+          <div class="card-header"><span class="card-icon">⚡</span> Pilar 4: Persistencia y Realtime</div>
+          <p style="color: #cbd5e1; font-size: 0.9rem; margin-bottom: 0.5rem;">Sincronización instantánea de billetera y operaciones mediante WebSockets y Supabase.</p>
+          <div class="highlight-box">Estado global sin recarga de página</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== SLIDE 4 ==================== -->
+    <section class="slide" data-notes="La arquitectura se divide en tres capas bien delimitadas: El cliente Next.js en el frontend, el servidor FastAPI en el backend con caché LRU/Redis y la base de datos PostgreSQL en Supabase. El API Proxy garantiza la seguridad CORS.">
+      <div class="slide-header">
+        <div class="slide-category">ARQUITECTURA DE SISTEMAS</div>
+        <h1 class="slide-title">Flujo Integrado de Datos y Componentes</h1>
+      </div>
+      <div class="slide-content full-width">
+        <div class="mermaid-wrapper">
+          <pre class="mermaid">
+graph TD
+    subgraph Frontend ["Frontend (Next.js 15 Client)"]
+        UI["React Views (/dashboard, /invest)"] -->|Zod Validation| Hook["useInvestmentSession"]
+        Hook -->|API Request| APIProxy["Next.js API Proxy"]
+    end
+    
+    subgraph Backend ["Backend (FastAPI Engine)"]
+        APIProxy -->|CORS Safe POST| Router["Trading Router"]
+        Router -->|Inyecta Depends| Dependency["get_broker Dependency"]
+        Router -->|Ejecuta Inferencia| AIEngine["AI Quantitative Engine"]
+        AIEngine -->|Quotes & Financials| MarketData["Market Data Service"]
+        MarketData -->|Caché LRU / Redis| Ref["Yahoo Finance API"]
+        
+        Router -->|Plan de Órdenes| Executor["Order Executor Service"]
+        Executor -->|Call Interface| Adapter["IBrokerAdapter"]
+        Adapter -->|Simulación ACID| DemoBroker["Demo Broker Implementation"]
+        Adapter -.->|Producción| Alpaca["Alpaca / IBKR APIs"]
+    end
+    
+    subgraph Cloud ["Persistencia (Supabase Cloud)"]
+        DemoBroker -->|Insert Session & Trades| Postgres["PostgreSQL DB"]
+        Postgres -->|Realtime WebSockets| UI
+    end
+          </pre>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== SLIDE 5 ==================== -->
+    <section class="slide" data-notes="Este es el Panel de Control del usuario en producción. Muestra en tiempo real el efectivo disponible, el valor total del portafolio, el PnL acumulado y la curva de rentabilidad calculada automáticamente.">
+      <div class="slide-header">
+        <div class="slide-category">DEMOSTRACIÓN EN VIVO</div>
+        <h1 class="slide-title">Panel de Control Cuántico (Dashboard)</h1>
+      </div>
+      <div class="slide-content">
+        <div class="card">
+          <div class="card-header">
+            <span class="card-icon">📈</span>
+            <span>Métricas del Panel</span>
+          </div>
+          <ul>
+            <li><strong>Valor Total de Cartera:</strong> Suma automatizada de liquidez ($9,430.81) más valor de mercado de posiciones abiertas.</li>
+            <li><strong>Rentabilidad Latente (PnL):</strong> Monitoreo de pérdidas/ganancias no realizadas en dólares y porcentaje vs capital base.</li>
+            <li><strong>Historial de Rendimiento:</strong> Gráfico dinámico de evolución temporal acumulada.</li>
+            <li><strong>Acciones Rápidas:</strong> Botones de sincronización e inicio directo de nuevas estrategias de inversión.</li>
+          </ul>
+        </div>
+        <div class="media-container">
+          <img src="assets/dashboard.png" alt="Dashboard de Producción">
+          <div class="media-caption">
+            <span>Interfaz de Usuario en Producción (Vercel + Supabase)</span>
+            <span>Haz clic para ampliar 🔍</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== SLIDE 6 ==================== -->
+    <section class="slide" data-notes="El motor cuantitativo evalúa indicadores técnicos como medias móviles, RSI y MACD, combinados con variables fundamentales como PER y rendimiento por dividendo. Todo se consolida en una fórmula de scoring normalizada de 0 a 10.">
+      <div class="slide-header">
+        <div class="slide-category">MOTOR ALGORÍTMICO</div>
+        <h1 class="slide-title">Criterios de Evaluación y Scoring</h1>
+      </div>
+      <div class="slide-content">
+        <div class="card">
+          <div class="card-header">
+            <span class="card-icon">📐</span>
+            <span>Indicadores Cuantitativos</span>
+          </div>
+          <ul>
+            <li><strong>Tendenciales:</strong> SMA20, SMA50, SMA200 y cruces exponenciales EMA12/EMA26.</li>
+            <li><strong>Impulso / Volatilidad:</strong> RSI14 (Niveles de sobrecompra > 70 / sobreventa < 30), MACD e histogramas de volumen.</li>
+            <li><strong>Riesgo:</strong> ATR14 (Average True Range) y Drawdown Máximo Histórico.</li>
+            <li><strong>Fundamentales:</strong> PER activo vs PER sectorial, Dividend Yield anualizado y fechas ex-dividendo.</li>
+          </ul>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <span class="card-icon">🧮</span>
+            <span>Fórmula de Scoring</span>
+          </div>
+          <p style="font-family: var(--font-mono); font-size: 1.1rem; color: var(--accent-emerald); margin-bottom: 1rem;">
+            Score = Σ (Factor_i × Ponderación_i) ∈ [0, 10]
+          </p>
+          <div class="table-container">
+            <table>
+              <thead>
+                <tr>
+                  <th>Score Calculado</th>
+                  <th>Recomendación IA</th>
+                  <th>Acción Sugerida</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td><span style="color: var(--accent-emerald); font-weight: bold;">Score ≥ 7.0</span></td>
+                  <td><span style="background: rgba(16,185,129,0.2); color: #10b981; padding: 2px 8px; border-radius: 4px; font-weight: bold;">BUY</span></td>
+                  <td>Ejecutar compra de acciones según capital asignado.</td>
+                </tr>
+                <tr>
+                  <td><span style="color: var(--accent-coral); font-weight: bold;">Score ≤ 3.0</span></td>
+                  <td><span style="background: rgba(239,68,68,0.2); color: #ef4444; padding: 2px 8px; border-radius: 4px; font-weight: bold;">SELL</span></td>
+                  <td>Cerrar/Reducir posición existente en cartera.</td>
+                </tr>
+                <tr>
+                  <td><span style="color: #f59e0b; font-weight: bold;">3.0 &lt; Score &lt; 7.0</span></td>
+                  <td><span style="background: rgba(245,158,11,0.2); color: #f59e0b; padding: 2px 8px; border-radius: 4px; font-weight: bold;">HOLD</span></td>
+                  <td>Mantener liquidez / No asumir exposición innecesaria.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== SLIDE 7 ==================== -->
+    <section class="slide" data-notes="En el módulo de inversión el usuario puede elegir entre dos estrategias: Largo Plazo (enfocada en fundamentales y dividendos) o Corto Plazo (reactiva a osciladores RSI). Aquí vemos el flujo de análisis ejecutado para el activo AAPL.">
+      <div class="slide-header">
+        <div class="slide-category">MODULO DE INVERSIÓN</div>
+        <h1 class="slide-title">Estrategias por Perfil de Inversor</h1>
+      </div>
+      <div class="slide-content">
+        <div class="media-container">
+          <img src="assets/invest.png" alt="Drawer del Módulo de Inversión">
+          <div class="media-caption">
+            <span>Configuración de Capital y Perfil de Estrategia</span>
+            <span>Haz clic para ampliar 🔍</span>
+          </div>
+        </div>
+        <div class="media-container">
+          <img src="assets/invest_auth_flow.png" alt="Justificación IA en Vivo">
+          <div class="media-caption">
+            <span>Resultado del Análisis Cuantitativo en Tiempo Real</span>
+            <span>Haz clic para ampliar 🔍</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== SLIDE 8 ==================== -->
+    <section class="slide" data-notes="Para garantizar la explicabilidad exigida, el sistema redacta dinámicamente un documento Markdown estructurado. En este ejemplo para Apple, el bot emitió una recomendación HOLD porque el activo se encontraba en zona de resistencia cerca de máximos de 52 semanas.">
+      <div class="slide-header">
+        <div class="slide-category">EXPLICABILIDAD DE LA IA</div>
+        <h1 class="slide-title">Justificación Transparente en Markdown</h1>
+      </div>
+      <div class="slide-content">
+        <div class="card">
+          <div class="card-header">
+            <span class="card-icon">📜</span>
+            <span>Estructura del Reporte Emitido</span>
+          </div>
+          <pre><code># Decisión IA: HOLD [AAPL]
+**Confianza**: 25% | **Fecha**: 2026-07-28 UTC
+
+## 📊 Rango de 52 Semanas
+- Precio Actual: $336.91 USD
+- Máximo 52 Semanas: $339.57 (-0.78%)
+- Proximidad: Zona de Resistencia (Cerca de Máximos)
+
+## 🏢 Fundamentales y Dividendos
+- P/E ratio: 31.4 (Valoración justa vs sector)
+- Rentabilidad Dividendos: 0.55%
+
+## ⚖️ Gestión de Riesgo
+- Decisión: No asumir posiciones de compra en máximos
+- Plan de Ejecución: 0 órdenes enviadas al Broker</code></pre>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <span class="card-icon">🛡️</span>
+            <span>Filtros Automáticos de Riesgo</span>
+          </div>
+          <ul>
+            <li><strong>Filtro de Sobreconcentración:</strong> Si un activo supera el 30% del valor total de la cartera, la orden de compra se bloquea forzando <code>HOLD</code>.</li>
+            <li><strong>Filtro de Drawdown Elevado:</strong> Si el activo ha sufrido una caída superior al 25%, el bot aplica un descuento automático del 50% en el capital asignable.</li>
+            <li><strong>Explicabilidad Integrada:</strong> Las razones matemáticas exactas quedan almacenadas en Supabase para auditoría académica.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== SLIDE 9 ==================== -->
+    <section class="slide" data-notes="En la vista de Mi Portafolio Cuántico, el inversor supervisa sus posiciones abiertas, precios medios de compra, precio de mercado actual y la integración de noticias financieras en tiempo real para sus activos.">
+      <div class="slide-header">
+        <div class="slide-category">GESTIÓN DE PORTAFOLIO</div>
+        <h1 class="slide-title">Supervisión de Activos y Noticias en Vivo</h1>
+      </div>
+      <div class="slide-content">
+        <div class="card">
+          <div class="card-header">
+            <span class="card-icon">💼</span>
+            <span>Capacidades del Portafolio</span>
+          </div>
+          <ul>
+            <li><strong>Desglose de Posiciones:</strong> Muestra activos en cartera (ej. Acerinox ACX.MC), precio medio vs actual y valor actualizado.</li>
+            <li><strong>Insights de Salud Financiera:</strong> Genera avisos automáticos sobre diversificación (ej. "Tu activo más grande representa solo el 5.67% de tu cartera").</li>
+            <li><strong>Noticias en Tiempo Real:</strong> Artículos financieros contextuales extraídos automáticamente para las empresas en cartera (GuruFocus, Barron's).</li>
+          </ul>
+        </div>
+        <div class="media-container">
+          <img src="assets/portfolio.png" alt="Portafolio en Producción">
+          <div class="media-caption">
+            <span>Vista de Portafolio en Producción (Posiciones + Noticias)</span>
+            <span>Haz clic para ampliar 🔍</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== SLIDE 10 ==================== -->
+    <section class="slide" data-notes="El modelo relacional se apoya en Supabase PostgreSQL con tablas para usuarios, billeteras, sesiones de trading e historial de transacciones. La calidad del código ha sido validada con suite de pruebas automáticas en pytest.">
+      <div class="slide-header">
+        <div class="slide-category">PERSISTENCIA Y CALIDAD</div>
+        <h1 class="slide-title">Modelo Relacional (ERD) y Pruebas</h1>
+      </div>
+      <div class="slide-content">
+        <div class="mermaid-wrapper">
+          <pre class="mermaid">
+erDiagram
+    USERS {
+        uuid id PK
+        text email UK
+        enum role
+        timestamptz created_at
+    }
+    WALLETS {
+        uuid id PK
+        uuid user_id FK
+        decimal balance
+        timestamptz last_updated
+    }
+    AI_TRADING_SESSIONS {
+        uuid id PK
+        uuid user_id FK
+        varchar strategy_type
+        decimal available_capital
+        text ai_reasoning
+        enum status
+    }
+    TRADES {
+        uuid id PK
+        uuid session_id FK
+        varchar symbol
+        enum action
+        decimal quantity
+        decimal price
+    }
+    USERS ||--o{ WALLETS : owns
+    USERS ||--o{ AI_TRADING_SESSIONS : executes
+    AI_TRADING_SESSIONS ||--o{ TRADES : generates
+          </pre>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <span class="card-icon">🧪</span>
+            <span>Estrategia de Calidad y Tests</span>
+          </div>
+          <ul>
+            <li><strong>Pruebas Unitarias (Pytest):</strong> Cobertura de cálculos cuantitativos (SMA, RSI, PER) en <code>backend/tests/</code>.</li>
+            <li><strong>Validación de Esquemas (Zod):</strong> Garantiza que todas las peticiones frontend cumplan el formato antes de invocar la API.</li>
+            <li><strong>Integración Continua:</strong> Builds automáticos en Vercel con comprobaciones de TypeScript y linting.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== SLIDE 11 ==================== -->
+    <section class="slide" data-notes="En conclusión, hemos diseñado un sistema completo de trading cuantitativo que soluciona la opacidad del sector. Agradezco sinceramente a los miembros del tribunal por su tiempo y quedo a su disposición para sus preguntas.">
+      <div class="slide-header">
+        <div class="slide-category">DEFENSA TFM • CONCLUSIONES</div>
+        <h1 class="slide-title">Conclusiones y Trabajo Futuro</h1>
+      </div>
+      <div class="slide-content">
+        <div class="card">
+          <div class="card-header">
+            <span class="card-icon">🏆</span>
+            <span>Logros del Trabajo</span>
+          </div>
+          <ul>
+            <li><strong>Explicabilidad Alcanzada:</strong> Eliminación completa de la "caja negra" mediante informes analíticos estructurados.</li>
+            <li><strong>Desacoplamiento Exitoso:</strong> Implementación limpia del patrón <code>IBrokerAdapter</code> para entornos de prueba y producción.</li>
+            <li><strong>Control de Riesgos:</strong> Reglas automáticas en tiempo real contra sobreconcentración y drawdown.</li>
+            <li><strong>Plataforma Desplegada:</strong> Disponible y operativa online en Vercel + Supabase.</li>
+          </ul>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <span class="card-icon">🚀</span>
+            <span>Líneas de Trabajo Futuro</span>
+          </div>
+          <ul>
+            <li><strong>Conexión a Broker Real:</strong> Despliegue del adaptador para la API Live de Alpaca Markets o Interactive Brokers.</li>
+            <li><strong>Motor de Backtesting:</strong> Simulación histórica multi-año con estimación de costes de deslizamiento (slippage).</li>
+            <li><strong>Modelos de ML Avanzados:</strong> Integración de modelos de procesamiento de lenguaje natural (LLM) para análisis de sentimiento de noticias.</li>
+          </ul>
+          <div class="highlight-box">
+            <strong>¡Muchas gracias por su atención!</strong> Quedo a disposición del tribunal para la turno de preguntas.
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Speaker Notes Drawer (Togglable) -->
+  <div class="speaker-notes-drawer" id="speaker-notes-drawer">
+    <div class="speaker-notes-header">
+      <span>🎤 NOTAS PARA EL PRESENTADOR (DEFENSA TFM)</span>
+    </div>
+    <div class="speaker-notes-content" id="speaker-notes-text">
+      Cargando notas de la diapositiva...
+    </div>
+  </div>
+
+  <!-- Footer / Bottom Navigation Bar -->
+  <footer class="bottom-bar">
+    <div class="slide-counter">
+      <span>Diapositiva <strong id="current-slide">1</strong> de <span id="total-slides">11</span></span>
+    </div>
+    <div class="nav-buttons">
+      <button class="btn" id="btn-prev">← Anterior</button>
+      <button class="btn btn-primary" id="btn-next">Siguiente →</button>
+      <button class="btn" id="btn-notes">🎤 Notas</button>
+      <button class="btn" id="btn-fullscreen">⛶ Pantalla Completa</button>
+    </div>
+  </footer>
+
+  <!-- Modal for Zooming Images -->
+  <div class="modal-overlay" id="modal-overlay">
+    <div class="modal-content">
+      <img id="modal-image" src="" alt="Ampliada">
+    </div>
+  </div>
+
+  <!-- Application Logic JS -->
+  <script src="app.js"></script>
+
+</body>
+</html>
