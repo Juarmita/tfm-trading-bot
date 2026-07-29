@@ -8,6 +8,7 @@ Este informe técnico documenta el análisis de seguridad de la base de código 
 
 | Severidad | Descripción del Hallazgo | Estado | Mitigación Aplicada |
 | :--- | :--- | :---: | :--- |
+| 🔴 **Critical** | Tablas públicas sin RLS y columnas sensibles expuestas (`rls_disabled_in_public` & `sensitive_columns_exposed`). | **Solucionado** | Habilitación de Row Level Security (RLS) y políticas de acceso fino (`auth.uid()`) en todas las tablas del esquema `public`. |
 | 🔴 **Critical** | Ausencia de verificación de firma JWT en la API del Backend (IDOR/Bypass de Auth). | **Solucionado** | Inyección de la dependencia `get_current_user_id` con `python-jose` en FastAPI. |
 | 🟡 **Medium** | Directiva CORS configurada con comodín (`*`) en producción. | **Solucionado** | Carga dinámica desde la variable de entorno `CORS_ORIGINS`. |
 | 🟡 **Medium** | Comprobación superficial de cookies en Middleware de Next.js. | **Mitigado** | Desplazamiento del punto de confianza y validación criptográfica al Backend. |
@@ -17,7 +18,14 @@ Este informe técnico documenta el análisis de seguridad de la base de código 
 
 ## 🔍 Detalles de Hallazgos e Implementaciones de Seguridad
 
-### 1. [CRITICAL] Ausencia de Verificación de Firma JWT en la API del Backend
+### 1. [CRITICAL] Deshabilitación de RLS y Exposición de Datos Sensibles (`rls_disabled_in_public` & `sensitive_columns_exposed`)
+*   **Vulnerabilidad**: Las tablas del esquema público (`users`, `wallets`, `portfolio_strategies`, `ai_trading_sessions`, `trades`) no tenían activada la Seguridad a Nivel de Fila (Row Level Security - RLS). La API pública PostgREST de Supabase expone todas las columnas sin restricciones a peticiones anónimas que utilicen la clave pública `anon`.
+*   **Solución (Políticas RLS en PostgreSQL)**:
+    - Se creó la migración [20260729000000_enable_rls_security_policies.sql](file:///c:/Users/juanm/Desktop/TGM/tfm-bot-trading/supabase/migrations/20260729000000_enable_rls_security_policies.sql) y se actualizó [20260717191000_init_schema.sql](file:///c:/Users/juanm/Desktop/TGM/tfm-bot-trading/supabase/migrations/20260717191000_init_schema.sql).
+    - Se ejecutó `ALTER TABLE ... ENABLE ROW LEVEL SECURITY;` para todas las tablas públicas.
+    - Se definieron políticas de control de acceso fino basadas en `auth.uid() = user_id` para aislar la información de cada usuario y prevenir la lectura o alteración no autorizada de correos, saldos de billeteras y sesiones de trading.
+
+### 2. [CRITICAL] Ausencia de Verificación de Firma JWT en la API del Backend
 *   **Vulnerabilidad**: El backend de FastAPI exponía públicamente los endpoints `/api/v1/trading/analyze` y `/api/v1/trading/portfolio/{user_id}` sin comprobar criptográficamente la validez del token JWT de Supabase. Un atacante externo podía realizar llamadas directas de red simulando cualquier `user_id` en el cuerpo del JSON, logrando debitar fondos de billeteras ajenas (Insecure Direct Object Reference - IDOR).
 *   **Solución (Defensa en Profundidad)**:
     - Se creó la función de verificación `get_current_user_id` utilizando `python-jose` en [trading.py](file:///c:/Users/juanm/Desktop/TGM/tfm-bot-trading/backend/app/api/v1/trading.py).
