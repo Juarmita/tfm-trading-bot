@@ -1,5 +1,5 @@
 from decimal import Decimal
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 import pandas as pd
@@ -223,3 +223,59 @@ async def test_analyze_and_decide_sell_with_owned_shares(mock_ticker):
 
     assert output_zero.decision == "HOLD"
     assert len(output_zero.orders) == 0
+
+
+@pytest.mark.asyncio
+@patch("yfinance.Ticker")
+async def test_analyze_and_decide_order_mode_shares(mock_ticker):
+    dates = pd.date_range(end="2026-07-18", periods=260)
+    prices = [100.0 + i * 0.5 for i in range(260)]
+    df = pd.DataFrame(
+        {"Open": prices, "High": [p + 2.0 for p in prices], "Low": [p - 2.0 for p in prices], "Close": prices, "Volume": [10000] * 260},
+        index=dates,
+    )
+    mock_instance = MagicMock()
+    mock_instance.history.return_value = df
+    mock_instance.info = {"forwardPE": 15.0, "dividendYield": 0.04, "debtToEquity": 45.0}
+    mock_ticker.return_value = mock_instance
+
+    output = await AIEngineService.analyze_and_decide(
+        user_id=uuid4(),
+        symbol="AAPL",
+        strategy_type="long_term",
+        available_capital=Decimal("5000.00"),
+        target_currency="EUR",
+        order_mode="shares",
+        shares_count=3.0,
+    )
+
+    assert output.decision == "BUY"
+    assert len(output.orders) == 1
+    assert output.orders[0].quantity == 3.0
+
+
+@pytest.mark.asyncio
+@patch("yfinance.Ticker")
+async def test_high_correlation_risk_penalty(mock_ticker):
+    dates = pd.date_range(end="2026-07-18", periods=260)
+    prices = [100.0 + i * 0.5 for i in range(260)]
+    df = pd.DataFrame(
+        {"Open": prices, "High": [p + 2.0 for p in prices], "Low": [p - 2.0 for p in prices], "Close": prices, "Volume": [10000] * 260},
+        index=dates,
+    )
+    mock_instance = MagicMock()
+    mock_instance.history.return_value = df
+    mock_instance.info = {"forwardPE": 15.0, "dividendYield": 0.04, "debtToEquity": 45.0}
+    mock_ticker.return_value = mock_instance
+
+    with patch.object(AIEngineService, "get_portfolio_correlation_dynamic", new=AsyncMock(return_value=0.85)):
+        output = await AIEngineService.analyze_and_decide(
+            user_id=uuid4(),
+            symbol="AAPL",
+            strategy_type="long_term",
+            available_capital=Decimal("1000.00"),
+        )
+        assert output.confidence_score <= 0.85
+        assert "Alta >0.70 - Tamaño reducido en 20%" in output.reasoning_markdown
+
+

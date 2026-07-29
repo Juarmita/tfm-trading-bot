@@ -394,15 +394,14 @@ async def get_portfolio(
     supabase_key = os.getenv("SUPABASE_SERVICE_ROLE_KEY")
 
     if not supabase_url or not supabase_key:
-        mock_summary = {
-            "total_account_value": 15420.50,
-            "cash_balance": 5800.00,
-            "invested_capital": 9620.50,
-            "total_unrealized_pnl": 420.50,
-            "total_unrealized_pnl_pct": 4.56,
-            "daily_pnl": 125.30,
-            "daily_pnl_pct": 0.82,
-        }
+        mock_summary = PortfolioSummary(
+            cash=5800.00,
+            total_positions_value=9620.50,
+            total_portfolio_value=15420.50,
+            total_cost_basis=9142.50,
+            total_profit_loss=478.00,
+            total_profit_loss_pct=5.23,
+        )
         mock_positions = [
             PositionModel(
                 symbol="AAPL",

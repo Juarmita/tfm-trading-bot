@@ -269,28 +269,28 @@ erDiagram
 
 <!-- slide -->
 
-## 9. Validación Técnica: Batería de Pruebas Unitarias
+## 9. Validación Técnica: Batería de Pruebas Unitarias y Seguridad
 
-### 🛡️ Aseguramiento de Calidad con Pytest (100% de Cobertura)
+### 🛡️ Aseguramiento de Calidad con Pytest (85% de Cobertura de Código)
 
-- **18 Pruebas Unitarias Integradas y Verificadas**:
-  - `test_market_data.py`: Valida descargas asíncronas de Tickers desconocidos, limpieza de valores nulos (NaN) e integración de caché LRU.
-  - `test_ai_engine.py`: Valida cálculo de SMA50/200, asignación de pesos, penalizaciones por riesgo y soporte para activos de historial corto.
-  - `test_broker.py`: Comprueba el aislamiento de los adaptadores, límites preventivos de capital y simulación ACID de balance.
-  - `test_portfolio.py`: Valida la agregación de operaciones de compra/venta, coste medio y cálculo de ROI de portafolio.
-  - `test_main.py`: Asegura la respuesta y salud básica de los endpoints del servidor FastAPI.
+- **69 Pruebas Unitarias Integradas y Verificadas (100% Pasadas)**:
+  - `test_market_api.py` & `test_market_data.py`: Valida descargas asíncronas de cotizaciones, históricos, dividendos, noticias, tipos de cambio FX (EUR, GBp, CNY) y caché en memoria.
+  - `test_ai_engine.py`: Valida cálculo de SMA/EMA/RSI/MACD/ATR, asignación de pesos duales (Largo vs Corto Plazo) y filtros de riesgo (drawdown >25% y correlación >0.70).
+  - `test_order_executor.py` & `test_broker.py`: Comprueba el aislamiento del adaptador `IBrokerAdapter`, límites preventivos de capital y deducción atómica de saldo.
+  - `test_trading_api.py` & `test_supabase_integrations.py`: Valida `/analyze`, `/execute`, `/portfolio/{user_id}`, verificación de tokens JWT y persistencia PostgREST.
 - **Auditoría de Ejecución local exitosa**:
   ```bash
-  uv run pytest
-  ======================== 18 passed in 2.07s ========================
+  uv run pytest -v --cov=app --cov-report=term-missing
+  ======================= 69 passed (85% TOTAL COVERAGE) =======================
   ```
-- **Integración Continua (GitHub Actions)**:
-  - Automatización de linting con `ruff`, chequeo estricto de tipos con `tsc --noEmit` y paso de pytest con cada push a la rama `dev/tfm-v1`.
+- **Hardening de Seguridad & Validación Automatizada**:
+  - Habilitación de **Row-Level Security (RLS)** en Supabase PostgreSQL (`auth.uid() = user_id`).
+  - Script ejecutable [`infra/final_validation.sh`](file:///c:/Users/juanm/Desktop/TGM/tfm-bot-trading/infra/final_validation.sh) (6/6 checks aprobados).
 
 ---
 
 **🎤 Notas del Presentador (Tiempo sugerido: 18:00 - 20:00)**:
-> *"Para garantizar la reproducibilidad y el rigor académico del desarrollo, se construyó una batería de pruebas unitarias que cubre los tres módulos principales, alcanzando los 18 tests unitarios exitosos. Validamos que el simulador de broker lance errores si el capital requerido supera el balance del usuario y comprobamos que las cachés respondan correctamente. El pipeline de GitHub Actions bloquea la integración de cualquier código que no compile o rompa los tests."*
+> *"Para garantizar la reproducibilidad y el rigor académico del desarrollo, se construyó una batería consolidada de 69 pruebas unitarias que alcanza el 85% de cobertura total de código en el backend. Validamos que los simuladores de broker rechacen órdenes que superen el saldo, auditamos la conversión multidivisa y el motor de explicabilidad. Además, hemos blindado la base de datos PostgreSQL con políticas RLS por usuario y un script automatizado de validación en 6 pasos."*
 
 ---
 

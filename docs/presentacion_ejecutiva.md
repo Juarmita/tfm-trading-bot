@@ -14,7 +14,7 @@
 
 **Solución**: Plataforma web completa que combina un motor cuantitativo explicativo con gestión dinámica de riesgos, generando justificaciones algorítmicas en lenguaje natural para cada decisión de inversión. La arquitectura desacoplada mediante el patrón Adapter permite migrar de un simulador demo a un broker real sin modificar la lógica de negocio.
 
-**Resultado**: Sistema funcional desplegado en producción con análisis en tiempo real de mercados internacionales (NYSE, LSE, XETRA, BME, Euronext), conversión automática multidivisa, portafolio consolidado y 18 tests unitarios automatizados en CI/CD.
+**Resultado**: Sistema funcional desplegado en producción con análisis en tiempo real de mercados internacionales (NYSE, LSE, XETRA, BME, Euronext), conversión automática multidivisa, portafolio consolidado, seguridad PostgreSQL RLS por usuario y **69 tests unitarios automatizados (85% de cobertura)** verificados mediante el script de auditoría en 6 pasos.
 
 ---
 

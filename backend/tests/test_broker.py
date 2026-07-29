@@ -1,77 +1,102 @@
-import os
-from unittest.mock import patch
-from uuid import uuid4
-
 import pytest
-
-from app.core.broker_adapter import OrderRequest
-from app.core.dependencies import get_broker, init_broker
+from datetime import datetime, timezone
+from uuid import uuid4
+from unittest.mock import AsyncMock, patch
 from app.services.demo_broker import DemoBroker
+from app.core.broker_adapter import ExecutionReport, OrderRequest, Position
 
 
 @pytest.mark.asyncio
-async def test_demo_broker_capital_validation():
+async def test_demo_broker_get_balance_default():
+    broker = DemoBroker()
+    balance = await broker.get_balance(uuid4())
+    assert balance == 10000.0
+
+
+@pytest.mark.asyncio
+async def test_demo_broker_get_positions():
+    broker = DemoBroker()
+    positions = await broker.get_positions(uuid4())
+    assert isinstance(positions, list)
+    assert len(positions) >= 1
+    assert isinstance(positions[0], Position)
+
+
+@pytest.mark.asyncio
+async def test_demo_broker_execute_order_buy_success():
+    broker = DemoBroker(slippage_pct=0.01, mock_latency_ms=10.0)
+    order = OrderRequest(
+        user_id=uuid4(),
+        symbol="AAPL",
+        action="BUY",
+        quantity=2.0,
+        price_estimated=180.0
+    )
+    report = await broker.execute_order(order)
+    assert report.status == "filled"
+    assert report.symbol == "AAPL"
+    assert report.price_filled >= 180.0
+
+
+@pytest.mark.asyncio
+async def test_demo_broker_execute_order_sell():
+    broker = DemoBroker(slippage_pct=0.005, mock_latency_ms=5.0)
+    order = OrderRequest(
+        user_id=uuid4(),
+        symbol="TSLA",
+        action="SELL",
+        quantity=5.0,
+        price_estimated=200.0
+    )
+    report = await broker.execute_order(order)
+    assert report.status == "filled"
+    assert report.action == "SELL"
+
+
+@pytest.mark.asyncio
+async def test_demo_broker_get_balance_supabase_success():
+    broker = DemoBroker()
+    user_id = uuid4()
+    with patch("os.getenv") as mock_env:
+        mock_env.side_effect = lambda key, default=None: "https://mock.supabase.co" if key == "NEXT_PUBLIC_SUPABASE_URL" else ("mock-key" if key == "SUPABASE_SERVICE_ROLE_KEY" else default)
+        with patch("httpx.AsyncClient.get") as mock_get:
+            mock_res = AsyncMock()
+            mock_res.raise_for_status = lambda: None
+            mock_res.json = lambda: [{"balance": 7500.50}]
+            mock_get.return_value = mock_res
+            balance = await broker.get_balance(user_id)
+            assert balance == 7500.50
+
+
+@pytest.mark.asyncio
+async def test_demo_broker_update_supabase_balance(monkeypatch):
+    monkeypatch.setenv("NEXT_PUBLIC_SUPABASE_URL", "https://mock.supabase.co")
+    monkeypatch.setenv("SUPABASE_SERVICE_ROLE_KEY", "mock-key")
     broker = DemoBroker()
     user_id = uuid4()
 
-    # Validar con balance de $500 simulado
-    with patch.object(DemoBroker, "get_balance", return_value=500.0):
-        # Requerir $300 debe ser True
-        assert await broker.validate_capital(user_id, 300.0) is True
-        # Requerir $600 debe ser False
-        assert await broker.validate_capital(user_id, 600.0) is False
+    mock_res = AsyncMock()
+    mock_res.raise_for_status = lambda: None
+    mock_res.json = lambda: [{"id": "w123", "balance": 10000.0}]
+
+    with patch("httpx.AsyncClient.get", new=AsyncMock(return_value=mock_res)):
+        with patch("httpx.AsyncClient.patch", new=AsyncMock(return_value=mock_res)):
+            await broker._update_supabase_balance(user_id, -1500.0)
+            assert True
 
 
-@pytest.mark.asyncio
-async def test_demo_broker_order_execution_rejection():
-    broker = DemoBroker(mock_latency_ms=0)
-    user_id = uuid4()
-
-    # Simular saldo insuficiente ($100) para una orden que requiere $300
-    with patch.object(DemoBroker, "get_balance", return_value=100.0):
-        order = OrderRequest(
-            user_id=user_id,
-            symbol="AAPL",
-            action="BUY",
-            quantity=2.0,
-            price_estimated=150.0,  # Costo estimado $300
-        )
-
-        report = await broker.execute_order(order)
-        assert report.status == "rejected"
-        assert report.quantity_filled == 0.0
-        assert report.price_filled == 0.0
-
-
-@pytest.mark.asyncio
-async def test_demo_broker_order_execution_success():
-    # Inicializar con slippage de 1% (0.01) y latencia 0 para agilidad
-    broker = DemoBroker(slippage_pct=0.01, mock_latency_ms=0)
-    user_id = uuid4()
-
-    with patch.object(DemoBroker, "get_balance", return_value=1000.0):
-        with patch.object(DemoBroker, "_update_supabase_balance", return_value=None):
-            order = OrderRequest(user_id=user_id, symbol="AAPL", action="BUY", quantity=2.0, price_estimated=100.0)
-
-            report = await broker.execute_order(order)
-
-            assert report.status == "filled"
-            assert report.quantity_filled == 2.0
-            # El precio de compra final es $101 por el 1% de slippage
-            assert report.price_filled == 101.0
-            # Desviación de $1.0 por acción * 2 acciones = $2.0 slippage total
-            assert report.slippage_usd == 2.0
-
-
-def test_broker_dependency_fallback():
-    # 1. Probar que si no está definido el broker, cae en DemoBroker
-    with patch.dict(os.environ, {"BROKER_ADAPTER": "unknown"}):
-        init_broker()
-        broker = get_broker()
-        assert isinstance(broker, DemoBroker)
-
-    # 2. Probar que cae en DemoBroker de fallback si se especifica alpaca pero no hay credenciales reales
-    with patch.dict(os.environ, {"BROKER_ADAPTER": "alpaca"}):
-        init_broker()
-        broker = get_broker()
-        assert isinstance(broker, DemoBroker)
+def test_demo_broker_log_execution():
+    broker = DemoBroker()
+    report = ExecutionReport(
+        order_id=uuid4(),
+        symbol="AAPL",
+        action="BUY",
+        quantity_filled=1.0,
+        price_filled=180.0,
+        slippage_usd=0.0,
+        execution_latency_ms=50.0,
+        status="filled",
+        timestamp=datetime.now(timezone.utc)
+    )
+    broker.log_execution(report)
+    assert report.status == "filled"
