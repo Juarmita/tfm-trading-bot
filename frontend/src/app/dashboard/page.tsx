@@ -27,6 +27,7 @@ import {
   Cpu,
   CheckCircle2,
   Globe,
+  Menu,
 } from "lucide-react";
 import {
   ResponsiveContainer,
@@ -42,11 +43,12 @@ import { PortfolioResponse } from "@/types";
 type DatabaseTrade = {
   id: string;
   symbol: string;
-  action: "BUY" | "SELL";
+  action: "BUY" | "SELL" | "HOLD";
   quantity: number;
   price_executed: number;
   amount_usd: number;
   created_at: string;
+  reason_snapshot?: string;
 };
 
 type TimeFrame = "1D" | "1W" | "1M" | "1Y";
@@ -63,6 +65,7 @@ export default function DashboardPage() {
   const [editBalanceValue, setEditBalanceValue] = useState("");
   const [isSavingBalance, setIsSavingBalance] = useState(false);
   const [timeframe, setTimeframe] = useState<TimeFrame>("1M");
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   // 1. Evitar Hydration Mismatches en Next.js
   useEffect(() => {
@@ -364,26 +367,47 @@ export default function DashboardPage() {
   const chartData = generateChartData();
 
   return (
-    <div className="flex h-screen bg-slate-950 text-slate-100 overflow-hidden relative">
+    <div className="flex flex-col md:flex-row h-screen bg-slate-950 text-slate-100 overflow-hidden relative">
       <div className="absolute top-0 left-0 w-[500px] h-[500px] bg-emerald-500/5 rounded-full filter blur-[120px] pointer-events-none" />
       <div className="absolute bottom-0 right-0 w-[500px] h-[500px] bg-blue-500/5 rounded-full filter blur-[120px] pointer-events-none" />
 
-      {/* Sidebar */}
-      <aside className="w-64 border-r border-slate-900 bg-slate-950 flex flex-col justify-between p-4 relative z-10">
+      {/* Overlay Backdrop para Menú Móvil */}
+      {isMobileMenuOpen && (
+        <div
+          className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-40 md:hidden"
+          onClick={() => setIsMobileMenuOpen(false)}
+        />
+      )}
+
+      {/* Sidebar (Desktop fijo / Mobile Drawer Desplegable) */}
+      <aside
+        className={`fixed inset-y-0 left-0 z-50 w-72 bg-slate-950/95 border-r border-slate-900 p-4 flex flex-col justify-between backdrop-blur-xl transition-transform duration-300 md:static md:w-64 md:translate-x-0 md:flex shrink-0 ${
+          isMobileMenuOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
+        }`}
+      >
         <div>
-          <div className="flex items-center gap-3 px-2 py-3 mb-6">
-            <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
-              <TrendingUp size={18} />
+          <div className="flex items-center justify-between px-2 py-3 mb-6">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+                <TrendingUp size={18} />
+              </div>
+              <div>
+                <h1 className="font-extrabold text-sm text-white tracking-wide">TFM BOT</h1>
+                <p className="text-[10px] text-slate-400 font-mono">Trading Algorítmico</p>
+              </div>
             </div>
-            <div>
-              <h1 className="font-extrabold text-sm text-white tracking-wide">TFM BOT</h1>
-              <p className="text-[10px] text-slate-400 font-mono">Trading Algorítmico</p>
-            </div>
+            <button
+              onClick={() => setIsMobileMenuOpen(false)}
+              className="md:hidden text-slate-400 hover:text-white p-1"
+            >
+              <X size={20} />
+            </button>
           </div>
 
           <nav className="space-y-1">
             <Link
               href="/home"
+              onClick={() => setIsMobileMenuOpen(false)}
               className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-900/60 text-xs font-medium transition"
             >
               <Globe size={16} />
@@ -391,13 +415,15 @@ export default function DashboardPage() {
             </Link>
             <Link
               href="/dashboard"
+              onClick={() => setIsMobileMenuOpen(false)}
               className="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs font-semibold transition"
             >
               <Activity size={16} />
               <span>Panel de Control</span>
             </Link>
             <Link
-              href="/investment"
+              href="/invest"
+              onClick={() => setIsMobileMenuOpen(false)}
               className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-900/60 text-xs font-medium transition"
             >
               <Cpu size={16} />
@@ -405,6 +431,7 @@ export default function DashboardPage() {
             </Link>
             <Link
               href="/portfolio"
+              onClick={() => setIsMobileMenuOpen(false)}
               className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-900/60 text-xs font-medium transition"
             >
               <Briefcase size={16} />
@@ -415,7 +442,10 @@ export default function DashboardPage() {
 
         <div className="space-y-2 pt-4 border-t border-slate-900">
           <button
-            onClick={handleResetPortfolio}
+            onClick={() => {
+              setIsMobileMenuOpen(false);
+              handleResetPortfolio();
+            }}
             disabled={isResetting}
             className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-red-950/20 hover:bg-red-900/40 border border-red-900/40 text-red-400 text-xs font-semibold transition active:scale-95 disabled:opacity-50"
           >
@@ -423,7 +453,10 @@ export default function DashboardPage() {
             <span>{isResetting ? "Restableciendo..." : "Restablecer Datos"}</span>
           </button>
           <button
-            onClick={handleLogout}
+            onClick={() => {
+              setIsMobileMenuOpen(false);
+              handleLogout();
+            }}
             className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-slate-900/60 hover:bg-slate-900 border border-slate-800 text-slate-300 text-xs font-semibold transition active:scale-95"
           >
             <LogOut size={13} />
@@ -433,27 +466,36 @@ export default function DashboardPage() {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-y-auto p-8 relative z-10">
-        <div className="max-w-7xl mx-auto space-y-8">
+      <main className="flex-1 min-w-0 overflow-y-auto p-4 sm:p-8 relative z-10">
+        <div className="max-w-7xl mx-auto space-y-6 sm:space-y-8">
           {/* Header Bar */}
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-900 pb-6">
-            <div>
-              <h2 className="text-2xl font-extrabold text-white tracking-tight">Panel de Control Cuántico</h2>
-              <p className="text-xs text-slate-400 mt-1">
-                Monitoreo en tiempo real de operaciones, liquidez y conectividad del motor IA.
-              </p>
-            </div>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-900 pb-6">
             <div className="flex items-center gap-3">
               <button
+                onClick={() => setIsMobileMenuOpen(true)}
+                className="md:hidden p-2 rounded-lg bg-slate-900 border border-slate-800 text-slate-300 hover:text-white"
+                title="Abrir menú de navegación"
+              >
+                <Menu size={20} />
+              </button>
+              <div>
+                <h2 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight">Panel de Control Cuántico</h2>
+                <p className="text-xs text-slate-400 mt-1 hidden sm:block">
+                  Monitoreo en tiempo real de operaciones, liquidez y conectividad del motor IA.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 sm:gap-3">
+              <button
                 onClick={handleSync}
-                className="flex items-center gap-2 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 px-3.5 py-2 rounded-xl text-xs font-semibold transition active:scale-95"
+                className="flex items-center gap-2 bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 px-3 sm:px-3.5 py-2 rounded-xl text-xs font-semibold transition active:scale-95"
               >
                 <RefreshCw size={13} />
                 <span>Sincronizar</span>
               </button>
               <Link
-                href="/investment"
-                className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 px-4 py-2 rounded-xl text-xs font-bold transition active:scale-95 shadow-lg shadow-emerald-500/20"
+                href="/invest"
+                className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 px-3.5 sm:px-4 py-2 rounded-xl text-xs font-bold transition active:scale-95 shadow-lg shadow-emerald-500/20"
               >
                 <Cpu size={14} />
                 <span>Nueva Inversión</span>

@@ -199,20 +199,6 @@ Para facilitar la evaluación por parte del tribunal, el repositorio incluye un 
      - **Email**: `evaluador@tfm.com`
      - **Contraseña**: `tfm123456`
      - **Saldo billetera virtual**: `$10,000.00 USD`
-3. **Script de Validación Automatizada del Tribunal**:
-   Ejecute desde la raíz del proyecto para comprobar de forma interactiva los 6 criterios del tribunal:
-   ```bash
-   # En Linux / macOS
-   ./infra/final_validation.sh
-
-   # En Windows PowerShell
-   powershell -ExecutionPolicy Bypass -File ./infra/final_validation.ps1
-   ```
-   *Salida esperada*: `🎉 AUDITORÍA TÉCNICA SUPERADA CON ÉXITO: 6/6 CHECKS VALIDADOS`.
-4. **Exportación de Materiales de Defensa**:
-   - Diapositivas PowerPoint: Copiar [`docs/presentacion.pptx`](file:///c:/Users/juanm/Desktop/TGM/tfm-bot-trading/docs/presentacion.pptx)
-   - Visor de Slides HTML: Navegar a `http://localhost:3000/slides/` o acceder a GitHub Pages.
-
 ---
 
 ## 📖 Referencias & Licencia
@@ -229,4 +215,4 @@ Para facilitar la evaluación por parte del tribunal, el repositorio incluye un 
 ---
 
 **Licencia**: Este proyecto está publicado bajo la [Licencia MIT](file:///c:/Users/juanm/Desktop/TGM/tfm-bot-trading/LICENSE) © 2026 Juan Manuel Garcia Jurado. Código fuente abierto con fines estrictamente académicos.  
-**Última actualización de auditoría**: 2026-07-29 12:25 UTC
+

@@ -28,6 +28,7 @@ import {
   Check,
   X,
   Globe,
+  Menu,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -45,6 +46,7 @@ export default function PortfolioPage() {
   const [isEditingBalance, setIsEditingBalance] = useState(false);
   const [editBalanceValue, setEditBalanceValue] = useState("");
   const [isSavingBalance, setIsSavingBalance] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -208,27 +210,48 @@ export default function PortfolioPage() {
   const profitLossPct = summary?.total_profit_loss_pct ?? 0;
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 flex overflow-hidden relative">
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col md:flex-row overflow-x-hidden relative">
       {/* Luces de Fondo */}
       <div className="absolute -top-40 -left-40 w-[600px] h-[600px] bg-emerald-500/5 rounded-full filter blur-[150px] pointer-events-none" />
       <div className="absolute -bottom-40 -right-40 w-[600px] h-[600px] bg-blue-500/5 rounded-full filter blur-[150px] pointer-events-none" />
 
-      {/* Sidebar de Navegación */}
-      <aside className="w-64 border-r border-slate-900 bg-slate-950/80 backdrop-blur-md p-6 flex flex-col justify-between shrink-0 relative z-20">
+      {/* Overlay Backdrop para Menú Móvil */}
+      {isMobileMenuOpen && (
+        <div
+          className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-40 md:hidden"
+          onClick={() => setIsMobileMenuOpen(false)}
+        />
+      )}
+
+      {/* Sidebar de Navegación (Desktop fijo / Mobile Drawer Desplegable) */}
+      <aside
+        className={`fixed inset-y-0 left-0 z-50 w-72 bg-slate-950/95 border-r border-slate-900 p-6 flex flex-col justify-between backdrop-blur-xl transition-transform duration-300 md:static md:w-64 md:translate-x-0 md:flex shrink-0 ${
+          isMobileMenuOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
+        }`}
+      >
         <div className="space-y-8">
-          <div className="flex items-center gap-3">
-            <div className="bg-emerald-500 text-slate-950 p-2 rounded-xl font-extrabold shadow-lg shadow-emerald-500/10">
-              <TrendingUp size={22} />
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="bg-emerald-500 text-slate-950 p-2 rounded-xl font-extrabold shadow-lg shadow-emerald-500/10">
+                <TrendingUp size={22} />
+              </div>
+              <div>
+                <h1 className="font-bold text-lg tracking-wider text-white">TFM BOT</h1>
+                <p className="text-xs text-slate-400">Trading Algorítmico</p>
+              </div>
             </div>
-            <div>
-              <h1 className="font-bold text-lg tracking-wider text-white">TFM BOT</h1>
-              <p className="text-xs text-slate-400">Trading Algorítmico</p>
-            </div>
+            <button
+              onClick={() => setIsMobileMenuOpen(false)}
+              className="md:hidden text-slate-400 hover:text-white p-1"
+            >
+              <X size={20} />
+            </button>
           </div>
 
           <nav className="space-y-1">
             <Link
               href="/home"
+              onClick={() => setIsMobileMenuOpen(false)}
               className="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-900/50 transition font-medium text-xs"
             >
               <Globe size={18} />
@@ -236,21 +259,24 @@ export default function PortfolioPage() {
             </Link>
             <Link
               href="/dashboard"
-              className="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-900/50 transition font-medium"
+              onClick={() => setIsMobileMenuOpen(false)}
+              className="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-900/50 transition font-medium text-xs"
             >
               <Activity size={18} />
               <span>Panel de Control</span>
             </Link>
             <Link
-              href="/investment"
-              className="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-900/50 transition font-medium"
+              href="/invest"
+              onClick={() => setIsMobileMenuOpen(false)}
+              className="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-900/50 transition font-medium text-xs"
             >
               <Coins size={18} />
               <span>Módulo de Inversión</span>
             </Link>
             <Link
               href="/portfolio"
-              className="flex items-center gap-3 px-3 py-2 rounded-lg bg-emerald-500/10 text-emerald-400 font-medium"
+              onClick={() => setIsMobileMenuOpen(false)}
+              className="flex items-center gap-3 px-3 py-2 rounded-lg bg-emerald-500/10 text-emerald-400 font-medium text-xs"
             >
               <Briefcase size={18} />
               <span>Mi Portafolio</span>
@@ -260,7 +286,10 @@ export default function PortfolioPage() {
 
         <div className="border-t border-slate-900 pt-4 px-2 space-y-3">
           <button
-            onClick={handleResetPortfolio}
+            onClick={() => {
+              setIsMobileMenuOpen(false);
+              handleResetPortfolio();
+            }}
             disabled={isResetting}
             className="w-full flex items-center justify-center gap-2 bg-red-950/20 hover:bg-red-950/40 text-red-400 border border-red-900/40 py-2 rounded-lg text-xs font-medium transition active:scale-95 disabled:opacity-50"
           >
@@ -269,7 +298,10 @@ export default function PortfolioPage() {
           </button>
           
           <button
-            onClick={handleLogout}
+            onClick={() => {
+              setIsMobileMenuOpen(false);
+              handleLogout();
+            }}
             className="w-full flex items-center justify-center gap-2 bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 py-2 rounded-lg text-xs font-medium transition active:scale-95"
           >
             <LogOut size={14} />
@@ -279,33 +311,42 @@ export default function PortfolioPage() {
       </aside>
 
       {/* Main Content Area */}
-      <main className="flex-1 overflow-y-auto flex flex-col relative z-10">
+      <main className="flex-1 min-w-0 overflow-y-auto flex flex-col relative z-10">
         {/* Header */}
-        <header className="border-b border-slate-900 px-8 py-5 bg-slate-950/60 backdrop-blur-md flex items-center justify-between">
-          <div>
-            <h2 className="text-xl font-bold text-white">Mi Portafolio Cuántico</h2>
-            <p className="text-xs text-slate-400">Rendimiento latente y distribución de activos</p>
-          </div>
+        <header className="border-b border-slate-900 px-4 sm:px-8 py-4 bg-slate-950/60 backdrop-blur-md flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
+            <button
+              onClick={() => setIsMobileMenuOpen(true)}
+              className="md:hidden p-2 rounded-lg bg-slate-900 border border-slate-800 text-slate-300 hover:text-white"
+              title="Abrir menú de navegación"
+            >
+              <Menu size={20} />
+            </button>
+            <div>
+              <h2 className="text-lg sm:text-xl font-bold text-white">Mi Portafolio Cuántico</h2>
+              <p className="text-xs text-slate-400 hidden sm:block">Rendimiento latente y distribución de activos</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 sm:gap-3">
             <Link
-              href="/investment"
-              className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold px-4 py-2 rounded-lg shadow-lg shadow-emerald-500/10 hover:shadow-emerald-400/20 transition active:scale-95 text-sm"
+              href="/invest"
+              className="flex items-center gap-1.5 sm:gap-2 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold px-3 sm:px-4 py-2 rounded-lg shadow-lg shadow-emerald-500/10 hover:shadow-emerald-400/20 transition active:scale-95 text-xs sm:text-sm"
             >
               <Play size={15} fill="currentColor" />
-              <span>Nueva Inversión</span>
+              <span>Inversión</span>
             </Link>
             <button
               onClick={handleSync}
-              className="flex items-center gap-2 bg-slate-900 hover:bg-slate-800 text-slate-300 font-bold px-4 py-2 rounded-lg border border-slate-800 transition active:scale-95 text-sm"
+              className="flex items-center gap-1.5 sm:gap-2 bg-slate-900 hover:bg-slate-800 text-slate-300 font-bold px-3 sm:px-4 py-2 rounded-lg border border-slate-800 transition active:scale-95 text-xs sm:text-sm"
             >
               <RefreshCw size={15} />
-              <span>Sincronizar</span>
+              <span className="hidden sm:inline">Sincronizar</span>
             </button>
           </div>
         </header>
 
         {/* Scrollable Container */}
-        <div className="p-8 space-y-8 flex-1">
+        <div className="p-4 sm:p-8 space-y-8 flex-1">
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-24 space-y-4">
             <div className="w-12 h-12 rounded-full border-2 border-emerald-500/20 border-t-emerald-500 animate-spin" />
