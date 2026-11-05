@@ -231,7 +231,13 @@ async def test_analyze_and_decide_order_mode_shares(mock_ticker):
     dates = pd.date_range(end="2026-07-18", periods=260)
     prices = [100.0 + i * 0.5 for i in range(260)]
     df = pd.DataFrame(
-        {"Open": prices, "High": [p + 2.0 for p in prices], "Low": [p - 2.0 for p in prices], "Close": prices, "Volume": [10000] * 260},
+        {
+            "Open": prices,
+            "High": [p + 2.0 for p in prices],
+            "Low": [p - 2.0 for p in prices],
+            "Close": prices,
+            "Volume": [10000] * 260,
+        },
         index=dates,
     )
     mock_instance = MagicMock()
@@ -260,7 +266,13 @@ async def test_high_correlation_risk_penalty(mock_ticker):
     dates = pd.date_range(end="2026-07-18", periods=260)
     prices = [100.0 + i * 0.5 for i in range(260)]
     df = pd.DataFrame(
-        {"Open": prices, "High": [p + 2.0 for p in prices], "Low": [p - 2.0 for p in prices], "Close": prices, "Volume": [10000] * 260},
+        {
+            "Open": prices,
+            "High": [p + 2.0 for p in prices],
+            "Low": [p - 2.0 for p in prices],
+            "Close": prices,
+            "Volume": [10000] * 260,
+        },
         index=dates,
     )
     mock_instance = MagicMock()
@@ -277,5 +289,3 @@ async def test_high_correlation_risk_penalty(mock_ticker):
         )
         assert output.confidence_score <= 0.85
         assert "Alta >0.70 - Tamaño reducido en 20%" in output.reasoning_markdown
-
-

@@ -1,10 +1,9 @@
-import pytest
-from uuid import uuid4
 from unittest.mock import AsyncMock, patch
-from app.api.v1.trading import (
-    save_session_to_supabase,
-    save_trade_to_supabase
-)
+from uuid import uuid4
+
+import pytest
+
+from app.api.v1.trading import save_session_to_supabase, save_trade_to_supabase
 
 
 @pytest.mark.asyncio
@@ -25,7 +24,7 @@ async def test_save_session_to_supabase_success(monkeypatch):
             input_snapshot={"symbol": "AAPL"},
             ai_reasoning="# Reasoning",
             execution_plan=[],
-            status="pending"
+            status="pending",
         )
         assert mock_post.called
 
@@ -44,7 +43,7 @@ async def test_save_session_to_supabase_error_handled(monkeypatch):
             input_snapshot={},
             ai_reasoning="",
             execution_plan=[],
-            status="pending"
+            status="pending",
         )
         # Se maneja la excepción internamente con log.error sin crash
         assert True
@@ -68,7 +67,7 @@ async def test_save_trade_to_supabase_success(monkeypatch):
             quantity=10.0,
             price=180.0,
             amount=1800.0,
-            reason="Compra probada"
+            reason="Compra probada",
         )
         assert mock_post.called
 
@@ -91,7 +90,7 @@ def test_get_portfolio_with_supabase_trades(client, monkeypatch):
             "quantity": 10.0,
             "price_executed": 170.0,
             "amount_usd": 1700.0,
-            "ai_trading_sessions": {"user_id": user_id, "created_at": "2026-07-28T10:00:00Z"}
+            "ai_trading_sessions": {"user_id": user_id, "created_at": "2026-07-28T10:00:00Z"},
         }
     ]
 
@@ -146,7 +145,7 @@ def test_get_user_trades_with_supabase_success(client, monkeypatch):
             "quantity": 5.0,
             "price_executed": 180.0,
             "amount_usd": 900.0,
-            "ai_trading_sessions": {"user_id": user_id, "created_at": "2026-07-28T10:00:00Z"}
+            "ai_trading_sessions": {"user_id": user_id, "created_at": "2026-07-28T10:00:00Z"},
         }
     ]
 

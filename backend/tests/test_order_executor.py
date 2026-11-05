@@ -1,8 +1,10 @@
-import pytest
 from uuid import uuid4
+
+import pytest
+
 from app.services.ai_engine import AIDecisionOutput, ExecutionOrder
-from app.services.order_executor import OrderExecutorService
 from app.services.demo_broker import DemoBroker
+from app.services.order_executor import OrderExecutorService
 
 
 @pytest.mark.asyncio
@@ -15,7 +17,7 @@ async def test_order_executor_hold_decision():
         confidence_score=0.8,
         allocated_capital=0.0,
         orders=[],
-        reasoning_markdown="# Análisis IA\nSin señal clara."
+        reasoning_markdown="# Análisis IA\nSin señal clara.",
     )
     reports = await OrderExecutorService.process_ai_execution_plan(uuid4(), decision, broker)
     assert len(reports) == 0
@@ -39,10 +41,10 @@ async def test_order_executor_buy_decision_success():
                 quantity=5.0,
                 price_estimated=180.0,
                 amount_usd=900.0,
-                reason="Señal fuerte"
+                reason="Señal fuerte",
             )
         ],
-        reasoning_markdown="# Análisis IA\nTendencia alcista."
+        reasoning_markdown="# Análisis IA\nTendencia alcista.",
     )
     reports = await OrderExecutorService.process_ai_execution_plan(user_id, decision, broker)
     assert len(reports) == 1
@@ -70,10 +72,10 @@ async def test_order_executor_buy_decision_rejected():
                 quantity=1000.0,
                 price_estimated=200.0,
                 amount_usd=200000.0,
-                reason="Orden gigante"
+                reason="Orden gigante",
             )
         ],
-        reasoning_markdown="# Análisis IA\nExcede capital."
+        reasoning_markdown="# Análisis IA\nExcede capital.",
     )
     reports = await OrderExecutorService.process_ai_execution_plan(user_id, decision, broker)
     assert len(reports) == 1
