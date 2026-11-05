@@ -1,12 +1,10 @@
-import pytest
-from uuid import uuid4
 from unittest.mock import AsyncMock, patch
+from uuid import uuid4
+
+import pytest
 from fastapi.security import HTTPAuthorizationCredentials
-from app.api.v1.trading import (
-    get_current_user_id,
-    save_session_to_supabase,
-    save_trade_to_supabase
-)
+
+from app.api.v1.trading import get_current_user_id, save_session_to_supabase, save_trade_to_supabase
 from app.services.ai_engine import AIDecisionOutput, ExecutionOrder
 
 
@@ -50,7 +48,7 @@ def test_analyze_endpoint_success(client):
         "available_capital": 5000.0,
         "currency": "USD",
         "order_mode": "amount",
-        "sell_option": "all"
+        "sell_option": "all",
     }
 
     mock_ai_output = AIDecisionOutput(
@@ -66,10 +64,10 @@ def test_analyze_endpoint_success(client):
                 quantity=10.0,
                 price_estimated=180.0,
                 amount_usd=1800.0,
-                reason="Indicador alcista"
+                reason="Indicador alcista",
             )
         ],
-        reasoning_markdown="# Análisis IA\nSe aprueba compra."
+        reasoning_markdown="# Análisis IA\nSe aprueba compra.",
     )
 
     with patch("app.api.v1.trading.AIEngineService.analyze_and_decide", new=AsyncMock(return_value=mock_ai_output)):
@@ -93,8 +91,8 @@ def test_execute_trading_plan_hold(client):
             "confidence_score": 0.8,
             "allocated_capital": 0.0,
             "orders": [],
-            "reasoning_markdown": "# HOLD"
-        }
+            "reasoning_markdown": "# HOLD",
+        },
     }
     response = client.post("/api/v1/trading/execute", json=payload)
     assert response.status_code == 200
@@ -120,11 +118,11 @@ def test_execute_trading_plan_buy_success(client):
                     "quantity": 5.0,
                     "price_estimated": 180.0,
                     "amount_usd": 900.0,
-                    "reason": "Ejecutar compra"
+                    "reason": "Ejecutar compra",
                 }
             ],
-            "reasoning_markdown": "# BUY"
-        }
+            "reasoning_markdown": "# BUY",
+        },
     }
     with patch("app.api.v1.trading.save_trade_to_supabase", new=AsyncMock()):
         response = client.post("/api/v1/trading/execute", json=payload)
@@ -172,7 +170,7 @@ async def test_save_session_to_supabase_no_keys():
         input_snapshot={},
         ai_reasoning="Test",
         execution_plan=[],
-        status="pending"
+        status="pending",
     )
     assert True
 
@@ -187,6 +185,6 @@ async def test_save_trade_to_supabase_no_keys():
         quantity=5.0,
         price=180.0,
         amount=900.0,
-        reason="Test trade"
+        reason="Test trade",
     )
     assert True
