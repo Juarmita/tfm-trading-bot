@@ -1,28 +1,23 @@
-import pytest
-import time
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, patch
+
+import pytest
+
 from app.services.market_data import (
     MarketDataService,
     Quote,
-    HistoricalCandle,
     TimedMemoryCache,
     TokenBucketRateLimiter,
+    delete_cached_data,
     get_cached_data,
     set_cached_data,
-    delete_cached_data
 )
 
 
 @pytest.mark.asyncio
 async def test_get_quote_success():
     mock_quote = Quote(
-        symbol="AAPL",
-        price=180.0,
-        change=2.5,
-        change_pct=1.4,
-        volume=50000000,
-        timestamp=datetime.now(timezone.utc)
+        symbol="AAPL", price=180.0, change=2.5, change_pct=1.4, volume=50000000, timestamp=datetime.now(timezone.utc)
     )
     with patch("app.services.market_data.MarketDataService.get_quote", new=AsyncMock(return_value=mock_quote)):
         quote = await MarketDataService.get_quote("AAPL")
@@ -138,9 +133,9 @@ async def test_get_news_mocked_dict():
             "content": {
                 "title": "Mock Title",
                 "provider": {"displayName": "Mock Publisher"},
-                "pubDate": "2026-07-28T12:00:00Z"
+                "pubDate": "2026-07-28T12:00:00Z",
             },
-            "link": "https://example.com/news"
+            "link": "https://example.com/news",
         }
     ]
     with patch.object(MarketDataService, "_fetch_with_backoff", new=AsyncMock(return_value=mock_raw_news)):
@@ -153,10 +148,17 @@ async def test_get_news_mocked_dict():
 @pytest.mark.asyncio
 async def test_get_quote_yfinance_mocked():
     import pandas as pd
+
     dates = pd.date_range(end="2026-07-28", periods=2)
     df = pd.DataFrame(
-        {"Open": [178.0, 180.0], "High": [179.0, 182.0], "Low": [177.0, 179.0], "Close": [178.0, 180.0], "Volume": [1000, 2000]},
-        index=dates
+        {
+            "Open": [178.0, 180.0],
+            "High": [179.0, 182.0],
+            "Low": [177.0, 179.0],
+            "Close": [178.0, 180.0],
+            "Volume": [1000, 2000],
+        },
+        index=dates,
     )
     with patch.object(MarketDataService, "_fetch_with_backoff", new=AsyncMock(return_value=df)):
         quote = await MarketDataService.get_quote("MOCKSYM")
@@ -168,14 +170,7 @@ async def test_get_quote_yfinance_mocked():
 @pytest.mark.asyncio
 async def test_get_historical_cached():
     mock_candles_data = [
-        {
-            "date": "2026-07-28T10:00:00+00:00",
-            "open": 100.0,
-            "high": 105.0,
-            "low": 99.0,
-            "close": 104.0,
-            "volume": 5000
-        }
+        {"date": "2026-07-28T10:00:00+00:00", "open": 100.0, "high": 105.0, "low": 99.0, "close": 104.0, "volume": 5000}
     ]
     set_cached_data("historical:MOCKHIST:6mo:1d", mock_candles_data, 3600)
     candles = await MarketDataService.get_historical("MOCKHIST", period="6mo", interval="1d")

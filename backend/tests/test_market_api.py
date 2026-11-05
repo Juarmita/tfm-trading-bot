@@ -1,17 +1,12 @@
-import pytest
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, patch
-from app.services.market_data import Quote, HistoricalCandle, DividendEvent, NewsItem
+
+from app.services.market_data import DividendEvent, HistoricalCandle, NewsItem, Quote
 
 
 def test_get_quotes_api_success(client):
     mock_quote = Quote(
-        symbol="AAPL",
-        price=180.0,
-        change=2.5,
-        change_pct=1.4,
-        volume=50000000,
-        timestamp=datetime.now(timezone.utc)
+        symbol="AAPL", price=180.0, change=2.5, change_pct=1.4, volume=50000000, timestamp=datetime.now(timezone.utc)
     )
     with patch("app.services.market_data.MarketDataService.get_quote", new=AsyncMock(return_value=mock_quote)):
         response = client.get("/api/v1/market/quotes/AAPL")
@@ -37,7 +32,9 @@ def test_get_quotes_api_failure_all(client):
 
 def test_get_historical_api_success(client):
     mock_candles = [
-        HistoricalCandle(date=datetime.now(timezone.utc), open=179.0, high=181.0, low=178.5, close=180.0, volume=1000000)
+        HistoricalCandle(
+            date=datetime.now(timezone.utc), open=179.0, high=181.0, low=178.5, close=180.0, volume=1000000
+        )
     ]
     with patch("app.services.market_data.MarketDataService.get_historical", new=AsyncMock(return_value=mock_candles)):
         response = client.get("/api/v1/market/historical/AAPL?period=1mo&interval=1d")
@@ -54,9 +51,7 @@ def test_get_historical_api_failure(client):
 
 
 def test_get_dividends_api_success(client):
-    mock_divs = [
-        DividendEvent(date=datetime.now(timezone.utc), value=0.25)
-    ]
+    mock_divs = [DividendEvent(date=datetime.now(timezone.utc), value=0.25)]
     with patch("app.services.market_data.MarketDataService.get_dividends", new=AsyncMock(return_value=mock_divs)):
         response = client.get("/api/v1/market/dividends/AAPL?range=60d")
         assert response.status_code == 200
@@ -66,14 +61,21 @@ def test_get_dividends_api_success(client):
 
 
 def test_get_dividends_api_failure(client):
-    with patch("app.services.market_data.MarketDataService.get_dividends", side_effect=Exception("Dividend fetch error")):
+    with patch(
+        "app.services.market_data.MarketDataService.get_dividends", side_effect=Exception("Dividend fetch error")
+    ):
         response = client.get("/api/v1/market/dividends/ERR?range=invalid")
         assert response.status_code == 400
 
 
 def test_get_news_api_success(client):
     mock_news = [
-        NewsItem(title="Apple Quarter Results", publisher="Reuters", link="https://example.com", provider_publish_time=datetime.now(timezone.utc))
+        NewsItem(
+            title="Apple Quarter Results",
+            publisher="Reuters",
+            link="https://example.com",
+            provider_publish_time=datetime.now(timezone.utc),
+        )
     ]
     with patch("app.services.market_data.MarketDataService.get_news", new=AsyncMock(return_value=mock_news)):
         response = client.get("/api/v1/market/news/AAPL?limit=3")
